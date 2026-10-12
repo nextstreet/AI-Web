@@ -1,0 +1,85 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCmsProductCategories, getCmsProducts, isCmsEnabled, type CmsProduct } from '../../lib/cms/directus';
+
+export async function getStaticPaths() {
+  const products = await getCmsProducts();
+  return products.map((product: CmsProduct) => ({ params: { slug: product.slug }, props: { product } }));
+}
+
+const { product } = Astro.props as { product: CmsProduct };
+const categories = await getCmsProductCategories();
+const category = categories.find((item) => item.slug === product.categorySlug);
+const imageUrl = product.image;
+const title = product.name;
+const description = product.description;
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: product.name,
+  description: product.description,
+  ...(imageUrl ? { image: imageUrl } : {}),
+  ...(product.priceFrom != null ? {
+    offers: {
+      '@type': 'Offer',
+      price: product.priceFrom,
+      priceCurrency: product.priceCurrency ?? 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+  } : {}),
+};
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonicalPath={product.canonicalUrl ?? `/products/${product.slug}/`}
+  schema={schema}
+  noIndex={!isCmsEnabled()}
+  ogImage={product.ogImage ?? product.image}
+>
+  <nav aria-label="Breadcrumbs">
+    <ol class="breadcrumbs">
+      <li><a href="/products/">Products</a></li>
+      {category && <li><a href={`/products/#category-${category.slug}`}>{category.name}</a></li>}
+      <li aria-current="page">{product.name}</li>
+    </ol>
+  </nav>
+  <p class="eyebrow">{category?.name ?? 'Product'}</p>
+  <h1>{product.name}</h1>
+  <p class="lede">{product.description}</p>
+
+  {imageUrl && <img class="product-image" src={imageUrl} alt={product.name} loading="eager" />}
+
+  <div class="grid">
+    {product.features.length > 0 && (
+      <section class="card">
+        <h2>Key features</h2>
+        <ul>
+          {product.features.map((feature) => <li><strong>{feature.label}</strong><br />{feature.detail}</li>)}
+        </ul>
+      </section>
+    )}
+    {product.specs.length > 0 && (
+      <section class="card">
+        <h2>Specifications</h2>
+        <dl>
+          {product.specs.map((spec) => <><dt>{spec.dimension}</dt><dd>{spec.value}</dd></>)}
+        </dl>
+      </section>
+    )}
+    {product.leadTime && (
+      <section class="card">
+        <h2>Production timing</h2>
+        <p>{product.leadTime}</p>
+        <a href="/custom/">Request a project quotation</a>
+      </section>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .product-image { display: block; max-width: min(100%, 720px); max-height: 520px; object-fit: contain; margin-block: 2rem; border-radius: 1rem; }
+  dt { font-weight: 700; margin-top: .75rem; }
+  dd { margin-inline-start: 0; color: #554b59; }
+</style>

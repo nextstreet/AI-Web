@@ -2,12 +2,14 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlockRenderer from '../../components/cms/BlockRenderer.astro';
-import { getPublishedCmsPage, getPublishedCmsPages } from '../../lib/cms/directus';
+import { getPublishedCmsPage, getPublishedCmsPages, isCmsEnabled } from '../../lib/cms/directus';
 
 const cmsPages = (await getPublishedCmsPages()).filter((page) => page.pageType === 'guide' && page.path !== '/guides/');
 const cmsPaths = new Set(cmsPages.map((page) => page.path));
-const pages = (await getCollection('pages', ({ data }) => data.reviewed && data.pageType === 'guide'))
-  .filter(({ data }) => !cmsPaths.has(data.canonicalPath));
+const pages = isCmsEnabled()
+  ? []
+  : (await getCollection('pages', ({ data }) => data.reviewed && data.pageType === 'guide'))
+      .filter(({ data }) => !cmsPaths.has(data.canonicalPath));
 const cmsPage = await getPublishedCmsPage('/guides/');
 ---
 

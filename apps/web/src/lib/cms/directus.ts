@@ -1,4 +1,18 @@
-import { normalizeCmsBlock, pageTypeSchema, type CmsBlock, type PageType } from '@ai-seo/shared';
+import {
+  normalizeCmsBlock,
+  normalizeCmsProduct,
+  normalizeCmsProductCategory,
+  pageTypeSchema,
+  type CmsBlock,
+  type CmsProduct as SharedCmsProduct,
+  type CmsProductCategory as SharedCmsProductCategory,
+  type PageType,
+} from '@ai-seo/shared';
+
+export type CmsProduct = SharedCmsProduct;
+export type CmsProductCategory = SharedCmsProductCategory;
+
+export type CmsInternalLink = { path: string; label: string };
 
 export type CmsPage = {
   id: string;
@@ -18,6 +32,18 @@ export type CmsPage = {
   publishedAt?: string;
   updatedAt?: string;
   noIndex: boolean;
+  canonicalUrl?: string;
+  ogImage?: string;
+  twitterCard?: string;
+  robots?: string;
+  jsonLdOverride?: Record<string, unknown>;
+  wordCount?: number;
+  readingTimeMinutes?: number;
+  aiPrompt?: string;
+  aiModel?: string;
+  aiGeneratedAt?: string;
+  targetKeyword?: string;
+  internalLinks: CmsInternalLink[];
 };
 
 export type CmsNavigationItem = {
@@ -40,6 +66,7 @@ const tenantId = import.meta.env.DIRECTUS_TENANT_ID;
 
 const defaultNavigation: CmsNavigationItem[] = [
   { id: 'custom', label: 'Custom', url: '/custom/', openInNewTab: false },
+  { id: 'products', label: 'Products', url: '/products/', openInNewTab: false },
   { id: 'guides', label: 'Guides', url: '/guides/', openInNewTab: false },
   { id: 'studio', label: 'V1 Studio', url: '/studio/', openInNewTab: false },
 ];
@@ -47,6 +74,8 @@ const defaultNavigation: CmsNavigationItem[] = [
 let pagePromise: Promise<CmsPage[]> | undefined;
 let navigationPromise: Promise<CmsNavigationItem[]> | undefined;
 let sitePromise: Promise<CmsSite | null> | undefined;
+let productsPromise: Promise<CmsProduct[]> | undefined;
+let categoriesPromise: Promise<CmsProductCategory[]> | undefined;
 
 function configurationState(): 'disabled' | 'enabled' {
   if (!endpoint && !tenantId && !token) return 'disabled';
@@ -119,8 +148,12 @@ async function loadPages(): Promise<CmsPage[]> {
       'id', 'tenant_id', 'path', 'page_type', 'title', 'seo_title', 'description',
       'eyebrow', 'lead', 'body_html', 'primary_topic', 'topic_id', 'related_topic_ids',
       'published_at', 'date_updated', 'noindex',
+      'canonical_url', 'og_image', 'twitter_card', 'robots', 'json_ld_override',
+      'word_count', 'reading_time_minutes',
+      'ai_prompt', 'ai_model', 'ai_generated_at',
+      'target_keyword', 'internal_links',
       'blocks:id', 'blocks:tenant_id', 'blocks:block_type', 'blocks:heading', 'blocks:body', 'blocks:items',
-      'blocks:cta_label', 'blocks:cta_url',
+      'blocks:cta_label', 'blocks:cta_url', 'blocks:ai_prompt',
     ].join(','),
     'deep[blocks][_sort]': 'sort',
     'deep[blocks][_filter][tenant_id][_eq]': tenantId!,
@@ -139,6 +172,18 @@ async function loadPages(): Promise<CmsPage[]> {
     const topicId = optionalString(item.topic_id);
     const publishedAt = optionalString(item.published_at);
     const updatedAt = optionalString(item.date_updated);
+    const canonicalUrl = optionalString(item.canonical_url);
+    const ogImage = optionalString(item.og_image);
+    const twitterCard = optionalString(item.twitter_card);
+    const robots = optionalString(item.robots);
+    const wordCount = item.word_count != null && item.word_count !== '' ? Number(item.word_count) : undefined;
+    const readingTimeMinutes = item.reading_time_minutes != null && item.reading_time_minutes !== ''
+      ? Number(item.reading_time_minutes)
+      : undefined;
+    const aiPrompt = optionalString(item.ai_prompt);
+    const aiModel = optionalString(item.ai_model);
+    const aiGeneratedAt = optionalString(item.ai_generated_at);
+    const targetKeyword = optionalString(item.target_keyword);
     const pageTenantId = requiredString(item, 'tenant_id', 'cms_pages');
     const rawBlocks = Array.isArray(item.blocks) ? item.blocks : [];
     const blocks = rawBlocks
@@ -151,6 +196,24 @@ async function loadPages(): Promise<CmsPage[]> {
         }
         return normalizeCmsBlock(blockRecord, blockId);
       });
+
+    let jsonLdOverride: Record<string, unknown> | undefined;
+    if (item.json_ld_override !== null && item.json_ld_override !== undefined) {
+      const parsed = typeof item.json_ld_override === 'string'
+        ? JSON.parse(item.json_ld_override)
+        : item.json_ld_override;
+      if (parsed && typeof parsed === 'object') jsonLdOverride = parsed as Record<string, unknown>;
+    }
+
+    const rawInternalLinks = Array.isArray(item.internal_links) ? item.internal_links : [];
+    const internalLinks: CmsInternalLink[] = rawInternalLinks
+      .map((link) => asRecord(link))
+      .filter((link): link is Record<string, unknown> => link !== null)
+      .map((link) => ({
+        path: requiredString(link, 'path', 'cms_pages.internal_links'),
+        label: requiredString(link, 'label', 'cms_pages.internal_links'),
+      }));
+
     return {
       id: requiredString(item, 'id', 'cms_pages'),
       tenantId: pageTenantId,
@@ -169,6 +232,18 @@ async function loadPages(): Promise<CmsPage[]> {
       ...(publishedAt ? { publishedAt } : {}),
       ...(updatedAt ? { updatedAt } : {}),
       noIndex: item.noindex === true,
+      ...(canonicalUrl ? { canonicalUrl } : {}),
+      ...(ogImage ? { ogImage } : {}),
+      ...(twitterCard ? { twitterCard } : {}),
+      ...(robots ? { robots } : {}),
+      ...(jsonLdOverride ? { jsonLdOverride } : {}),
+      ...(wordCount != null ? { wordCount } : {}),
+      ...(readingTimeMinutes != null ? { readingTimeMinutes } : {}),
+      ...(aiPrompt ? { aiPrompt } : {}),
+      ...(aiModel ? { aiModel } : {}),
+      ...(aiGeneratedAt ? { aiGeneratedAt } : {}),
+      ...(targetKeyword ? { targetKeyword } : {}),
+      internalLinks,
     };
   });
   const paths = new Set<string>();
@@ -237,4 +312,55 @@ export async function getHeaderNavigation(): Promise<CmsNavigationItem[]> {
 export function getCmsSite(): Promise<CmsSite | null> {
   sitePromise ??= loadSite();
   return sitePromise;
+}
+
+async function loadProductCategories(): Promise<CmsProductCategory[]> {
+  const items = await readCollection('cms_product_categories', {
+    fields: 'slug,name,description,sort',
+    'filter[status][_eq]': 'published',
+    sort: 'sort,name',
+    limit: '200',
+  });
+  return items.map((value, index) => normalizeCmsProductCategory(value, `cms_product_categories[${index}]`));
+}
+
+async function loadProducts(): Promise<CmsProduct[]> {
+  const items = await readCollection('cms_products', {
+    fields: [
+      'id', 'slug', 'name', 'description', 'category.slug',
+      'price_from', 'price_currency', 'lead_time', 'image',
+      'features', 'specs',
+      'canonical_url', 'og_image', 'word_count',
+      'ai_prompt', 'ai_model', 'ai_generated_at',
+      'sort',
+    ].join(','),
+    'filter[status][_eq]': 'published',
+    sort: 'sort,name',
+    limit: '500',
+  });
+  return items.map((value) => {
+    const item = asRecord(value);
+    const id = item ? requiredString(item, 'id', 'cms_products') : 'unknown';
+    return normalizeCmsProduct(value, id);
+  });
+}
+
+export function getCmsProducts(): Promise<CmsProduct[]> {
+  productsPromise ??= loadProducts();
+  return productsPromise;
+}
+
+export function getCmsProductCategories(): Promise<CmsProductCategory[]> {
+  categoriesPromise ??= loadProductCategories();
+  return categoriesPromise;
+}
+
+export async function getCmsProduct(slug: string): Promise<CmsProduct | undefined> {
+  return (await getCmsProducts()).find((product) => product.slug === slug);
+}
+
+export function getCmsAssetUrl(value: string): string {
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) return value;
+  if (!endpoint) return value;
+  return `${endpoint}/assets/${encodeURIComponent(value)}`;
 }

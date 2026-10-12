@@ -5,15 +5,29 @@ interface Props {
   canonicalPath?: string;
   schema?: Record<string, unknown>;
   noIndex?: boolean;
+  ogImage?: string;
+  twitterCard?: string;
+  robots?: string;
 }
 
 import { getCmsSite, getHeaderNavigation } from '../lib/cms/directus';
 
-const { title, description, canonicalPath, schema, noIndex = false } = Astro.props;
+const {
+  title,
+  description,
+  canonicalPath,
+  schema,
+  noIndex = false,
+  ogImage,
+  twitterCard = 'summary_large_image',
+  robots,
+} = Astro.props;
 const [cmsSite, navigation] = await Promise.all([getCmsSite(), getHeaderNavigation()]);
 const siteName = cmsSite?.siteName ?? import.meta.env.PUBLIC_SITE_NAME ?? 'Ita Bag Design Lab';
 const footerText = cmsSite?.footerText ?? 'V1 foundation — content requires review before publication.';
 const canonical = new URL(canonicalPath ?? Astro.url.pathname, Astro.site ?? Astro.url);
+const robotsContent = robots ?? (noIndex ? 'noindex, nofollow' : undefined);
+const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
 ---
 
 <!doctype html>
@@ -22,9 +36,18 @@ const canonical = new URL(canonicalPath ?? Astro.url.pathname, Astro.site ?? Ast
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={description} />
-    {noIndex && <meta name="robots" content="noindex, nofollow" />}
+    {robotsContent && <meta name="robots" content={robotsContent} />}
     <link rel="canonical" href={canonical} />
     <title>{title} | {siteName}</title>
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
+    <meta name="twitter:card" content={twitterCard} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
     {schema && <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />}
   </head>
   <body>

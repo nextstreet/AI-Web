@@ -127,6 +127,38 @@ Limit write access to trusted editors, disable script-capable markup in the
 WYSIWYG configuration, and do not grant anonymous users create/update
 permissions.
 
+### `cms_product_categories` and `cms_products`
+
+Product catalog content is also editorial content and is managed in Directus.
+Both collections require `tenant_id` and use the same `draft -> review ->
+published -> archived` lifecycle. A product is visible only when its own status
+is `published`; category assignment is optional but published products should
+normally belong to a published category.
+
+`cms_products` owns the product name, summary, category, starting price, currency,
+lead time, image reference, feature list, and specification list. Astro renders
+the catalog at `/products/`, product detail pages at `/products/{slug}/`, and a
+catalog section on `/custom/`. Directus file IDs are converted to `/assets/{id}`
+URLs at build time; external HTTPS image URLs are also supported.
+
+## Editorial operating plan
+
+1. Create or edit site settings and navigation in `cms_sites` and
+   `cms_navigation`.
+2. Create page copy in `cms_pages` and its ordered `cms_blocks`; keep generated
+   drafts in `draft` until an editor checks facts, links, and markup.
+3. Create product categories first, then product records with factual features,
+   specifications, images, price assumptions, and lead time.
+4. Move each item through `review` and then `published` only after human review.
+5. Configure a Directus Flow to call the hosting deploy hook when a published
+   `cms_sites`, `cms_navigation`, `cms_pages`, `cms_blocks`,
+   `cms_product_categories`, or `cms_products` item changes.
+6. Verify the rebuilt `/`, `/products/`, `/products/{slug}/`, `/custom/`, and
+   `/guides/` pages plus the sitemap before treating the change as live.
+
+Directus is not the source for SEO candidates, topic graphs, briefs, or
+performance metrics. Those remain tenant-scoped operational data in Supabase.
+
 ## Read access and environment
 
 After applying the snapshot, create a **Static site reader** policy with

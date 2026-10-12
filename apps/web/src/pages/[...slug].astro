@@ -2,7 +2,11 @@
 import { getCollection, render, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import BlockRenderer from '../components/cms/BlockRenderer.astro';
-import { getPublishedCmsPages, type CmsPage } from '../lib/cms/directus';
+import {
+  getPublishedCmsPages,
+  isCmsEnabled,
+  type CmsPage,
+} from '../lib/cms/directus';
 
 type PageSource =
   | { source: 'local'; page: CollectionEntry<'pages'> }
@@ -10,7 +14,11 @@ type PageSource =
 
 export async function getStaticPaths() {
   const reservedPaths = new Set(['/', '/custom/', '/guides/', '/studio/']);
-  const localPages = await getCollection('pages', ({ data }) => data.reviewed);
+  // When the CMS is enabled all reviewed content lives in Directus; local
+  // Markdown acts only as a fallback when the CMS is unavailable.
+  const localPages = isCmsEnabled()
+    ? []
+    : await getCollection('pages', ({ data }) => data.reviewed);
   const topicIds = new Set(localPages.map(({ data }) => data.topicId));
   for (const page of localPages) {
     const missingTopicId = page.data.relatedTopicIds.find((topicId) => !topicIds.has(topicId));
@@ -39,7 +47,7 @@ const { entry } = Astro.props;
 const localPage = entry.source === 'local' ? entry.page : undefined;
 const cmsPage = entry.source === 'directus' ? entry.page : undefined;
 const LocalContent = localPage ? (await render(localPage)).Content : undefined;
-const allLocalPages = await getCollection('pages', ({ data }) => data.reviewed);
+const allLocalPages = isCmsEnabled() ? [] : await getCollection('pages', ({ data }) => data.reviewed);
 const allCmsPages = await getPublishedCmsPages();
 const relatedTopicIds = localPage?.data.relatedTopicIds ?? cmsPage?.relatedTopicIds ?? [];
 const relatedPages = [
@@ -115,7 +123,7 @@ const faqSchema = faqBlock
     }
   : undefined;
 
-const schema = {
+const schema = cmsPage?.jsonLdOverride ?? {
   '@context': 'https://schema.org',
   '@graph': [
     primarySchema,
@@ -128,9 +136,12 @@ const schema = {
 <BaseLayout
   title={cmsPage?.seoTitle ?? pageTitle}
   description={description}
-  canonicalPath={pagePath}
+  canonicalPath={cmsPage?.canonicalUrl ?? pagePath}
   schema={schema}
   noIndex={cmsPage?.noIndex}
+  ogImage={cmsPage?.ogImage}
+  twitterCard={cmsPage?.twitterCard}
+  robots={cmsPage?.robots}
 >
   <nav aria-label="Breadcrumb">
     <ol class="breadcrumbs">
@@ -174,6 +185,17 @@ const schema = {
   {cmsPage && (cmsPage.blocks.length > 0
     ? <BlockRenderer blocks={cmsPage.blocks} />
     : <article class="prose cms-body" set:html={cmsPage.bodyHtml} />)}
+
+  {cmsPage && cmsPage.internalLinks.length > 0 && (
+    <aside aria-labelledby="internal-heading">
+      <h2 id="internal-heading">Explore further</h2>
+      <ul>
+        {cmsPage.internalLinks.map((link) => (
+          <li><a href={link.path}>{link.label}</a></li>
+        ))}
+      </ul>
+    </aside>
+  )}
 
   {relatedPages.length > 0 && (
     <aside aria-labelledby="related-heading">

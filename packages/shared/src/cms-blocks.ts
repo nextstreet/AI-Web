@@ -28,35 +28,44 @@ const comparisonRowSchema = z.object({
 
 const atLeastOne = <T extends z.ZodTypeAny>(schema: z.ZodArray<T>) => schema.min(1);
 
+const aiPrompt = z.string().trim().min(1).optional();
+
 /**
  * Discriminated contract for CMS content blocks. Each block type maps to one
- * renderer component and (optionally) a JSON-LD node.
+ * renderer component and (optionally) a JSON-LD node. `aiPrompt` records the
+ * AI-generated prompt that produced the block content, for traceability.
  */
 export const cmsBlockSchema = z.discriminatedUnion('blockType', [
   z.object({
     blockType: z.literal('heading'),
     heading: requiredLabel,
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('text'),
     body: z.string(),
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('options'),
     items: atLeastOne(z.array(optionRowSchema)),
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('steps'),
     items: atLeastOne(z.array(stepRowSchema)),
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('faq'),
     items: atLeastOne(z.array(faqRowSchema)),
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('comparison'),
     heading: z.string().trim().min(1).optional(),
     items: atLeastOne(z.array(comparisonRowSchema)),
+    aiPrompt,
   }),
   z.object({
     blockType: z.literal('cta'),
@@ -64,6 +73,7 @@ export const cmsBlockSchema = z.discriminatedUnion('blockType', [
     body: z.string().optional(),
     ctaLabel: requiredLabel,
     ctaUrl: safeLink,
+    aiPrompt,
   }),
 ]);
 
@@ -80,12 +90,17 @@ type RawBlock = {
   items?: unknown;
   cta_label?: unknown;
   cta_url?: unknown;
+  ai_prompt?: unknown;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function optionalTrimmedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 /**
@@ -104,6 +119,7 @@ export function normalizeCmsBlock(raw: unknown, sourceId: string): CmsBlock {
     items: (row as RawBlock).items,
     ctaLabel: (row as RawBlock).cta_label,
     ctaUrl: (row as RawBlock).cta_url,
+    aiPrompt: optionalTrimmedString((row as RawBlock).ai_prompt),
   };
 
   const result = cmsBlockSchema.safeParse(block);
