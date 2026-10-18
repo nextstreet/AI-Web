@@ -1,0 +1,114 @@
+# 自动部署流水线：构建静态站点并同步到服务器。
+# 触发：推送到 main、手动触发（workflow_dispatch）、
+#       或 Directus 内容发布 webhook（repository_dispatch: cms-published）。
+#
+# ══════════════ 首次启用配置（一次性，约 10 分钟）══════════════
+#
+# 1. 生成部署密钥（在本地电脑运行）：
+#      ssh-keygen -t ed25519 -f deploy_key -N ""
+#    把 deploy_key.pub 内容追加到服务器 ~/.ssh/authorized_keys，
+#    deploy_key 私钥全文（包括 BEGIN/END 行）作为 DEPLOY_SSH_KEY。
+#
+# 2. GitHub 仓库 -> Settings -> Secrets and variables -> Actions，添加：
+#      DEPLOY_HOST      服务器 IP 或域名，如 1.2.3.4
+#      DEPLOY_USER      SSH 用户名，如 root
+#      DEPLOY_PATH      站点目录，如 /var/www/ai-seo-site（需已存在）
+#      DEPLOY_SSH_KEY   上一步的私钥全文
+#      DEPLOY_PORT      可选，默认 22
+#      PUBLIC_SITE_URL  正式域名（含 https://），影响 sitemap 和 canonical
+#      （启用 CMS 内容后再加三项：DIRECTUS_URL / DIRECTUS_TOKEN / DIRECTUS_TENANT_ID，
+#        三项要么全填要么全空，只填一部分会导致构建失败）
+#
+# 3. 服务器 nginx 静态站点配置（root 指向 DEPLOY_PATH）：
+#      server {
+#        listen 80;
+#        server_name your-domain.com;
+#        root /var/www/ai-seo-site;
+#        index index.html;
+#        location / { try_files $uri $uri/ =404; }
+#      }
+#
+# 4. Directus 发布后自动重建（Directus 后台 -> Flows -> 新建 Flow）：
+#      Trigger: Event Hook，Scope 选 items.update，
+#               Collections 选 cms_sites、cms_navigation、cms_pages、cms_blocks、
+#               cms_product_categories、cms_products
+#      （可选加一个 Filter：payload.status 等于 published，只有发布动作才触发）
+#      Operation: Webhook / Request URL：
+#        Method: POST
+#        URL:    https://api.github.com/repos/<你的用户名>/<仓库名>/dispatches
+#        Headers: Authorization: Bearer <GitHub Personal Access Token，勾选 repo 权限>
+#                 Accept: application/vnd.github+json
+#        Body: {"event_type":"cms-published","client_payload":{"source":"directus"}}
+#
+# 密钥没配齐时部署步骤会自动跳过（黄字警告），构建照常执行。
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [cms-published]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建站点
+        env:
+          PUBLIC_SITE_URL: ${{ secrets.PUBLIC_SITE_URL }}
+          DIRECTUS_URL: ${{ secrets.DIRECTUS_URL }}
+          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
+          DIRECTUS_TENANT_ID: ${{ secrets.DIRECTUS_TENANT_ID }}
+        run: pnpm build
+
+      - name: 检查部署密钥
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "::warning::部署密钥未配齐（DEPLOY_HOST / DEPLOY_USER / DEPLOY_PATH / DEPLOY_SSH_KEY），本次跳过上传。配置方法见本文件头部注释。"
+            exit 78
+          fi
+
+      - name: 配置 SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 同步到服务器
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT:-22}" apps/web/dist/ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$DEPLOY_PATH/index.html'" \
+            && echo "部署完成：$DEPLOY_PATH/index.html 已更新"

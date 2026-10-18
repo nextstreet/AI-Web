@@ -12,9 +12,13 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "db:push": "node scripts/db-push.mjs",
+    "db:verify": "node scripts/verify-db.mjs",
+    "health": "node scripts/health.mjs"
   },
   "devDependencies": {
+    "pg": "^8.23.1",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
