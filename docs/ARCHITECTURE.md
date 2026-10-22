@@ -26,6 +26,8 @@ flowchart TD
 | Supabase | durable state, tenant isolation, relations, metrics | prompt orchestration |
 | Payload (`apps/cms`) | reviewed page bodies, products, site settings, and navigation | SEO opportunity decisions, automatic publication |
 | n8n (`client-kit`) | schedules and external API orchestration for client delivery | canonical business rules |
+| Directus (`client-kit`) | operator console: tenant config, candidate approval, deliverables, run history | customer page building, final content, WordPress credentials |
+| WordPress (customer) | final content and publishing for client sites | AI decisions, candidate state, orchestration |
 
 ## Data flow rules
 
@@ -43,7 +45,8 @@ flowchart TD
 Astro static output -> web hosting/CDN
 Payload             -> reviewed editorial content and site chrome (self-use)
 Supabase            -> Postgres + RLS + later Auth/Realtime
-n8n + Directus      -> client delivery kit under client-kit/
+n8n + Directus      -> operator console for client delivery under client-kit/
+WordPress           -> customer site: pages, products, publishing
 ```
 
 The web app should remain deployable without n8n. Payload is read at build

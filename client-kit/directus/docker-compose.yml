@@ -1,9 +1,9 @@
-# Self-hosted Directus publishing CMS for client sites (client-kit).
+# Operator console for client delivery (client-kit). The customer site is WordPress.
 # Usage:
 #   cd client-kit/directus
 #   cp .env.example .env   # then set KEY/ADMIN_* values
 #   docker compose up -d
-#   docker compose exec directus directus schema apply ./snapshots/2026-10-02-cms.yaml
+#   docker compose exec directus directus schema apply ./snapshots/2026-10-22-operator-console.yaml
 
 services:
   database:

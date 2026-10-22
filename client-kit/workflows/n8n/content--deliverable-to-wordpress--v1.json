@@ -1,0 +1,1148 @@
+{
+  "name": "content--deliverable-to-wordpress--v1",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Deliverable → WordPress\n\n**前置条件**\n- Directus 已应用 4 集合快照，交付物状态为 `approved`\n- `tenants.wp_base_url` 可访问，`environment` 已区分生产/预发\n- WordPress 已开启 REST 与 Application Password\n\n**导入后必须修改**\n1. `Config`：`directusUrl`、`batchLimit`\n2. `Push content` / `Media lookup` / `Upload media` / `Download image`：选择 WordPress Application Password 凭据\n3. `Push product` / `Update product`：选择 WooCommerce Consumer Key/Secret 凭据\n4. 先“手动测试”，确认后启用定时触发\n\n**行为**\n- 只处理 `status=approved` 且 `target_post_type` 非空的交付物\n- 先置为 `pushing`，成功后写回 `wp_post_id`/`wp_url`/`pushed_at` 并置 `pushed`\n- 失败置 `failed` 并写 `last_error`，同时写 `runs`\n- `draft_only` 策略下永远只写草稿\n\n**已知边界**\n- 分类/标签只发送数字 ID；名称会记入 `runs.payload_summary.skipped_terms`\n- 一个工作流实例对应一套 WordPress 凭据；多客户站点需复制流程或改子流程\n- Markdown 转换仅覆盖标题、段落、列表、粗斜体、链接",
+        "height": 500,
+        "width": 460,
+        "color": 4
+      },
+      "id": "b1a2c3d4-0001-4e5f-8a9b-0c1d2e3f4a01",
+      "name": "说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b1a2c3d4-0002-4e5f-8a9b-0c1d2e3f4a02",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "b1a2c3d4-0003-4e5f-8a9b-0c1d2e3f4a03",
+      "name": "每 15 分钟",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -80,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1a2c3d4-1001-4e5f-8a9b-0c1d2e3f4a01",
+              "name": "directusUrl",
+              "value": "http://127.0.0.1:8055",
+              "type": "string"
+            },
+            {
+              "id": "b1a2c3d4-1002-4e5f-8a9b-0c1d2e3f4a02",
+              "name": "batchLimit",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "b1a2c3d4-1003-4e5f-8a9b-0c1d2e3f4a03",
+              "name": "writeSeoMeta",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-0004-4e5f-8a9b-0c1d2e3f4a04",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        140,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.directusUrl }}/items/deliverables",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "approved"
+            },
+            {
+              "name": "filter[target_post_type][_nnull]",
+              "value": "true"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.batchLimit }}"
+            },
+            {
+              "name": "fields",
+              "value": "*,tenant.*"
+            },
+            {
+              "name": "sort",
+              "value": "date_created"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-0005-4e5f-8a9b-0c1d2e3f4a05",
+      "name": "Fetch approved deliverables",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Config').first().json;\nconst out = [];\nconst allowed = ['post', 'page', 'product'];\n\nfor (const item of $input.all()) {\n  for (const d of item.json.data ?? []) {\n    const tenant = d.tenant;\n    if (!tenant) continue;\n    if (tenant.enabled === false) continue;\n    if (!tenant.wp_base_url) continue;\n    if (!allowed.includes(d.target_post_type)) continue;\n\n    out.push({\n      json: {\n        ...d,\n        tenant,\n        tenantId: tenant.id,\n        tenantSlug: tenant.slug,\n        directusUrl: config.directusUrl,\n        writeSeoMeta: config.writeSeoMeta === true,\n        startedAt: new Date().toISOString(),\n      },\n    });\n  }\n}\n\nreturn out;",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0006-4e5f-8a9b-0c1d2e3f4a06",
+      "name": "Prepare deliverables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "b1a2c3d4-0007-4e5f-8a9b-0c1d2e3f4a07",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        800,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'pushing' }) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0008-4e5f-8a9b-0c1d2e3f4a08",
+      "name": "Claim deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Loop Over Items').first().json;\nconst tenant = d.tenant;\nconst isProduct = d.target_post_type === 'product';\nconst wpBaseUrl = String(tenant.wp_base_url || '').replace(/\\/+$/, '');\nconst existingId = Number(d.wp_post_id || d.target_post_id || 0) || null;\n\nfunction escapeHtml(value) {\n  return String(value)\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n}\n\nfunction inline(value) {\n  return value\n    .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/(^|[^*])\\*([^*]+)\\*/g, '$1<em>$2</em>')\n    .replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<a href=\"$2\">$1</a>');\n}\n\nfunction markdownToHtml(markdown) {\n  const lines = String(markdown || '').replace(/\\r\\n/g, '\\n').split('\\n');\n  const out = [];\n  let paragraph = [];\n  let listType = null;\n  let items = [];\n\n  function flushParagraph() {\n    if (!paragraph.length) return;\n    out.push('<p>' + inline(escapeHtml(paragraph.join(' '))) + '</p>');\n    paragraph = [];\n  }\n\n  function flushList() {\n    if (!listType) return;\n    out.push('<' + listType + '>' + items.join('') + '</' + listType + '>');\n    items = [];\n    listType = null;\n  }\n\n  for (const rawLine of lines) {\n    const line = rawLine.trimEnd();\n    if (!line.trim()) {\n      flushParagraph();\n      flushList();\n      continue;\n    }\n    const heading = /^(#{1,6})\\s+(.*)$/.exec(line);\n    if (heading) {\n      flushParagraph();\n      flushList();\n      const level = heading[1].length;\n      out.push('<h' + level + '>' + inline(escapeHtml(heading[2])) + '</h' + level + '>');\n      continue;\n    }\n    const bullet = /^[-*+]\\s+(.*)$/.exec(line);\n    if (bullet) {\n      flushParagraph();\n      if (listType !== 'ul') {\n        flushList();\n        listType = 'ul';\n      }\n      items.push('<li>' + inline(escapeHtml(bullet[1])) + '</li>');\n      continue;\n    }\n    const ordered = /^\\d+\\.\\s+(.*)$/.exec(line);\n    if (ordered) {\n      flushParagraph();\n      if (listType !== 'ol') {\n        flushList();\n        listType = 'ol';\n      }\n      items.push('<li>' + inline(escapeHtml(ordered[1])) + '</li>');\n      continue;\n    }\n    flushList();\n    paragraph.push(line.trim());\n  }\n  flushParagraph();\n  flushList();\n  return out.join('\\n');\n}\n\nconst policy = tenant.publish_policy || 'draft_only';\nconst publishAt = d.publish_at ? new Date(d.publish_at) : null;\nconst isFuture = publishAt !== null && !Number.isNaN(publishAt.getTime()) && publishAt.getTime() > Date.now();\nlet status = 'draft';\nif (policy !== 'draft_only') {\n  if (isFuture) status = isProduct ? 'draft' : 'future';\n  else status = 'publish';\n}\n\nfunction numericIds(value) {\n  return (Array.isArray(value) ? value : [])\n    .map(function (term) { return Number(term); })\n    .filter(function (term) { return Number.isInteger(term) && term > 0; });\n}\n\nfunction termNames(value) {\n  return (Array.isArray(value) ? value : []).filter(function (term) {\n    return !/^\\d+$/.test(String(term));\n  });\n}\n\nconst categories = numericIds(d.target_categories);\nconst tags = numericIds(d.target_tags);\nconst skippedTerms = termNames(d.target_categories)\n  .map(function (name) { return 'category:' + name; })\n  .concat(termNames(d.target_tags).map(function (name) { return 'tag:' + name; }));\n\nconst seoPlugin = tenant.seo_plugin || 'none';\nlet meta = null;\nif (d.writeSeoMeta && seoPlugin !== 'none') {\n  const seoTitle = d.seo_title || d.title;\n  const seoDescription = d.seo_description || d.excerpt || '';\n  if (seoPlugin === 'yoast') {\n    meta = { _yoast_wpseo_title: seoTitle, _yoast_wpseo_metadesc: seoDescription };\n    if (d.canonical_url) meta._yoast_wpseo_canonical = d.canonical_url;\n  } else if (seoPlugin === 'rankmath') {\n    meta = { rank_math_title: seoTitle, rank_math_description: seoDescription };\n    if (d.canonical_url) meta.rank_math_canonical_url = d.canonical_url;\n  }\n}\n\nconst contentHtml = markdownToHtml(d.body_md);\nconst articlePath = d.target_post_type === 'page' ? 'pages' : 'posts';\nlet wpPayload;\nlet pushUrl;\n\nif (isProduct) {\n  const extra = d.payload && typeof d.payload === 'object' ? d.payload : {};\n  let attributes;\n  if (Array.isArray(extra.attributes)) {\n    attributes = extra.attributes;\n  } else if (extra.attributes && typeof extra.attributes === 'object') {\n    attributes = Object.keys(extra.attributes).map(function (name) {\n      const options = extra.attributes[name];\n      return {\n        name: name,\n        options: (Array.isArray(options) ? options : [options]).map(String),\n        visible: true,\n      };\n    });\n  }\n  wpPayload = {\n    name: d.title,\n    slug: d.slug || undefined,\n    type: extra.type || 'simple',\n    status: status,\n    description: contentHtml,\n    short_description: d.excerpt || '',\n    sku: extra.sku || undefined,\n    regular_price: extra.regular_price || extra.price || undefined,\n    stock_status: extra.stock_status || undefined,\n    images: d.featured_image_url ? [{ src: d.featured_image_url }] : undefined,\n    attributes: attributes,\n  };\n  pushUrl = wpBaseUrl + '/wp-json/wc/v3/products' + (existingId ? '/' + existingId : '');\n} else {\n  wpPayload = {\n    title: d.title,\n    slug: d.slug || undefined,\n    content: contentHtml,\n    excerpt: d.excerpt || '',\n    status: status,\n    categories: categories.length ? categories : undefined,\n    tags: tags.length ? tags : undefined,\n    date: status === 'future' && publishAt ? publishAt.toISOString() : undefined,\n    meta: meta || undefined,\n  };\n  pushUrl = wpBaseUrl + '/wp-json/wp/v2/' + articlePath + (existingId ? '/' + existingId : '');\n}\n\nlet mediaSearchTerm = '';\nif (d.featured_image_url) {\n  try {\n    const path = new URL(d.featured_image_url).pathname;\n    mediaSearchTerm = decodeURIComponent(path.split('/').pop() || '').replace(/\\.[a-z0-9]+$/i, '');\n  } catch (error) {\n    mediaSearchTerm = '';\n  }\n}\nmediaSearchTerm = mediaSearchTerm || d.slug || '';\n\nreturn [{\n  json: {\n    deliverableId: d.id,\n    tenantId: d.tenantId,\n    tenantSlug: d.tenantSlug,\n    seoPlugin: seoPlugin,\n    targetPostType: d.target_post_type,\n    isProduct: isProduct,\n    existingId: existingId,\n    action: existingId ? 'update' : 'create',\n    wpBaseUrl: wpBaseUrl,\n    pushUrl: pushUrl,\n    wpPayload: wpPayload,\n    featuredImageUrl: d.featured_image_url || '',\n    mediaSearchTerm: mediaSearchTerm,\n    skippedTerms: skippedTerms,\n    startedAt: d.startedAt,\n    directusUrl: d.directusUrl,\n  },\n}];",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0009-4e5f-8a9b-0c1d2e3f4a09",
+      "name": "Build payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        -140
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-product-condition",
+              "leftValue": "={{ $json.isProduct }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-000a-4e5f-8a9b-0c1d2e3f4a0a",
+      "name": "Is product?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1460,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-product-id-condition",
+              "leftValue": "={{ !!$json.existingId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-000b-4e5f-8a9b-0c1d2e3f4a0b",
+      "name": "Has product id?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.pushUrl }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.wpPayload) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-000c-4e5f-8a9b-0c1d2e3f4a0c",
+      "name": "Push product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        -400
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "replace-with-woocommerce-credential-id",
+          "name": "WooCommerce API Keys"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.pushUrl }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.wpPayload) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-000d-4e5f-8a9b-0c1d2e3f4a0d",
+      "name": "Update product",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        -240
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "replace-with-woocommerce-credential-id",
+          "name": "WooCommerce API Keys"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-featured-image-condition",
+              "leftValue": "={{ !!($json.featuredImageUrl && $json.mediaSearchTerm) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-000e-4e5f-8a9b-0c1d2e3f4a0e",
+      "name": "Has featured image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.wpBaseUrl }}/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $json.mediaSearchTerm }}"
+            },
+            {
+              "name": "media_type",
+              "value": "image"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1a2c3d4-000f-4e5f-8a9b-0c1d2e3f4a0f",
+      "name": "Media lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        120
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "replace-with-wordpress-credential-id",
+          "name": "WordPress Application Password"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "media-exists-condition",
+              "leftValue": "={{ !!($json.id || ($json[0] && $json[0].id)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-0010-4e5f-8a9b-0c1d2e3f4a10",
+      "name": "Media exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2120,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Build payload').first().json.featuredImageUrl }}",
+        "authentication": "none",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "b1a2c3d4-0011-4e5f-8a9b-0c1d2e3f4a11",
+      "name": "Download image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2340,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-binary-condition",
+              "leftValue": "={{ !!($binary && $binary.data) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1a2c3d4-0012-4e5f-8a9b-0c1d2e3f4a12",
+      "name": "Has image binary?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Build payload').first().json.wpBaseUrl }}/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "sendBinaryData": true,
+        "inputDataFieldName": "data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alt_text",
+              "value": "={{ $('Build payload').first().json.wpPayload.title }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b1a2c3d4-0013-4e5f-8a9b-0c1d2e3f4a13",
+      "name": "Upload media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2780,
+        120
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "replace-with-wordpress-credential-id",
+          "name": "WordPress Application Password"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Build payload').first().json;\n\nfunction pickId(value) {\n  if (!value) return null;\n  if (Array.isArray(value)) return value[0] && value[0].id ? value[0].id : null;\n  return value.id ? value.id : null;\n}\n\nconst lookupId = $('Media lookup').isExecuted ? pickId($('Media lookup').first().json) : null;\nconst uploadId = $('Upload media').isExecuted ? pickId($('Upload media').first().json) : null;\nconst mediaId = uploadId || lookupId;\n\nconst wpPayload = Object.assign({}, base.wpPayload);\nlet mediaWarning = '';\nif (mediaId) {\n  wpPayload.featured_media = Number(mediaId);\n} else if (base.featuredImageUrl) {\n  mediaWarning = 'featured image could not be attached; pushed without featured media';\n}\n\nreturn [{ json: Object.assign({}, base, { wpPayload: wpPayload, mediaWarning: mediaWarning }) }];",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0014-4e5f-8a9b-0c1d2e3f4a14",
+      "name": "Merge media",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.pushUrl }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.wpPayload) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0015-4e5f-8a9b-0c1d2e3f4a15",
+      "name": "Push content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3220,
+        40
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "replace-with-wordpress-credential-id",
+          "name": "WordPress Application Password"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Build payload').first().json;\nconst response = $json;\nconst wpId = Number(response.id) || null;\n\nif (!wpId) {\n  throw new Error('WordPress response missing id: ' + JSON.stringify(response).slice(0, 500));\n}\n\nconst mediaWarning = $('Merge media').isExecuted ? $('Merge media').first().json.mediaWarning || '' : '';\n\nreturn [{\n  json: Object.assign({}, base, {\n    wpId: wpId,\n    wpUrl: response.link || response.permalink || '',\n    wpStatus: response.status || '',\n    mediaWarning: mediaWarning,\n  }),\n}];",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0016-4e5f-8a9b-0c1d2e3f4a16",
+      "name": "Normalize push result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3440,
+        -140
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.deliverableId }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ wp_post_id: $json.wpId, wp_url: $json.wpUrl, wp_status: $json.wpStatus, status: 'pushed', pushed_at: new Date().toISOString(), last_error: null }) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0017-4e5f-8a9b-0c1d2e3f4a17",
+      "name": "Write back deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3660,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalize push result').first().json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize push result').first().json.tenantId, deliverable: $('Normalize push result').first().json.deliverableId, workflow: 'deliverable-to-wordpress', execution_id: $execution.id, status: 'success', started_at: $('Normalize push result').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { action: $('Normalize push result').first().json.action, target: $('Normalize push result').first().json.targetPostType, wp_post_id: $('Normalize push result').first().json.wpId, wp_status: $('Normalize push result').first().json.wpStatus, wp_url: $('Normalize push result').first().json.wpUrl, skipped_terms: $('Normalize push result').first().json.skippedTerms, media_warning: $('Normalize push result').first().json.mediaWarning || null } }) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0018-4e5f-8a9b-0c1d2e3f4a18",
+      "name": "Record success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3880,
+        -140
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Loop Over Items').first().json;\nconst error = $json && $json.error ? $json.error : $json;\nconst message = String((error && (error.message || error.description)) || JSON.stringify(error)).slice(0, 2000);\n\nreturn [{\n  json: {\n    deliverableId: item.id,\n    tenantId: item.tenantId,\n    directusUrl: item.directusUrl,\n    startedAt: item.startedAt,\n    message: message,\n  },\n}];",
+        "options": {}
+      },
+      "id": "b1a2c3d4-0019-4e5f-8a9b-0c1d2e3f4a19",
+      "name": "Capture error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2100,
+        -580
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.deliverableId }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', last_error: $json.message }) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-001a-4e5f-8a9b-0c1d2e3f4a1a",
+      "name": "Mark failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        -640
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Loop Over Items').first().json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'deliverable-to-wordpress', execution_id: $execution.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "options": {}
+      },
+      "id": "b1a2c3d4-001b-4e5f-8a9b-0c1d2e3f4a1b",
+      "name": "Record failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2540,
+        -640
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {},
+      "id": "b1a2c3d4-001c-4e5f-8a9b-0c1d2e3f4a1c",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        -380
+      ]
+    }
+  ],
+  "connections": {
+    "手动测试": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每 15 分钟": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch approved deliverables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch approved deliverables": {
+      "main": [
+        [
+          {
+            "node": "Prepare deliverables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare deliverables": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Claim deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim deliverable": {
+      "main": [
+        [
+          {
+            "node": "Build payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build payload": {
+      "main": [
+        [
+          {
+            "node": "Is product?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is product?": {
+      "main": [
+        [
+          {
+            "node": "Has product id?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has featured image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has product id?": {
+      "main": [
+        [
+          {
+            "node": "Update product",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Push product",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push product": {
+      "main": [
+        [
+          {
+            "node": "Normalize push result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update product": {
+      "main": [
+        [
+          {
+            "node": "Normalize push result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has featured image?": {
+      "main": [
+        [
+          {
+            "node": "Media lookup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Push content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Media lookup": {
+      "main": [
+        [
+          {
+            "node": "Media exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Media exists?": {
+      "main": [
+        [
+          {
+            "node": "Merge media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download image": {
+      "main": [
+        [
+          {
+            "node": "Has image binary?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has image binary?": {
+      "main": [
+        [
+          {
+            "node": "Upload media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload media": {
+      "main": [
+        [
+          {
+            "node": "Merge media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge media": {
+      "main": [
+        [
+          {
+            "node": "Push content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push content": {
+      "main": [
+        [
+          {
+            "node": "Normalize push result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize push result": {
+      "main": [
+        [
+          {
+            "node": "Write back deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write back deliverable": {
+      "main": [
+        [
+          {
+            "node": "Record success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture error": {
+      "main": [
+        [
+          {
+            "node": "Mark failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark failed": {
+      "main": [
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record failure": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

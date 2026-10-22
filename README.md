@@ -5,7 +5,7 @@
 | 项目 | 代码位置 | 内容后台 | 状态 |
 | --- | --- | --- | --- |
 | 自用独立站 | `apps/web` + `apps/cms` | Payload 3 | 主开发线 |
-| 客户交付套件 | `client-kit/` | Directus + n8n | 维护中，站点读取层待恢复 |
+| 客户交付套件 | `client-kit/` | Directus 操作台 + n8n | 维护中，客户站点为 WordPress |
 
 V1 的目标不是“生成最多文章”，而是尽快跑通：
 
@@ -57,7 +57,7 @@ supabase db reset
 | --- | --- |
 | `apps/web` | 自用项目的 Astro SEO 站点 |
 | `apps/cms` | 自用项目的 Payload 后台、迁移与内容模型 |
-| `client-kit/` | 客户交付套件：Directus、n8n 工作流与部署脚本 |
+| `client-kit/` | 客户交付套件：Directus 操作台、n8n 工作流与 WordPress 写入约定 |
 | `packages/shared` | 通用类型、Schema、常量 |
 | `packages/seo-engine` | SEO 决策与机会评分 |
 | `packages/content-engine` | Brief、事实注入、内容验证 |

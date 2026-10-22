@@ -1,400 +1,192 @@
-// Deterministic development seed for the self-hosted Directus CMS.
+// Deterministic development seed for the client-kit Directus operator console.
 //
 // Usage:
 //   1. Create an admin static token in Data Studio (Settings -> Access Tokens).
-//   2. $env:DIRECTUS_ADMIN_TOKEN="the-token"; node client-kit/directus/seed/seed.mjs
+//   2. DIRECTUS_ADMIN_TOKEN="the-token" node client-kit/directus/seed/seed.mjs
+//   3. Add --dry-run to preview create/update decisions without writing.
 //
-// Idempotent: re-running updates the same fixed-id items in place.
+// Idempotent: every record is matched by its natural key (tenant slug,
+// candidate external_id, deliverable external_key, run execution_id), so
+// re-running updates the same rows instead of duplicating them.
 
 const baseUrl = (process.env.DIRECTUS_URL ?? 'http://localhost:8055').replace(/\/$/, '');
 const token = process.env.DIRECTUS_ADMIN_TOKEN;
+const dryRun = process.argv.includes('--dry-run');
 
 if (!token) {
   console.error('DIRECTUS_ADMIN_TOKEN is required. Create a static admin token in Data Studio first.');
   process.exit(1);
 }
 
-const tenantId = 'ita-bag-lab';
-
-// ----- Site settings -----
-const site = {
-  id: '20000000-0000-4000-8000-000000000001',
-  tenant_id: tenantId,
-  status: 'published',
-  site_name: 'Ita Bag Design Lab',
-  footer_text: 'V1 — CMS-controlled content, human review required before publication.',
+const tenant = {
+  id: '30000000-0000-4000-8000-000000000001',
+  name: 'Ita Bag Lab',
+  slug: 'ita-bag-lab',
+  wp_base_url: 'https://example.com',
+  environment: 'staging',
+  credential_ref: 'wp-ita-bag-lab',
+  locale: 'en',
+  market: 'US / EU',
+  brand_voice: 'Practical, specific, no hype. Prefer measurements and production constraints over adjectives.',
+  seo_plugin: 'yoast',
+  publish_policy: 'draft_only',
+  enabled: true,
+  notes: 'Demo tenant. Replace wp_base_url, credential_ref and seo_plugin with the real client values.',
 };
 
-const navigation = [
-  { id: '20000000-0000-4000-8000-000000000010', sort: 1, label: 'Custom', url: '/custom/' },
-  { id: '20000000-0000-4000-8000-000000000011', sort: 2, label: 'Products', url: '/products/' },
-  { id: '20000000-0000-4000-8000-000000000012', sort: 3, label: 'Guides', url: '/guides/' },
-  { id: '20000000-0000-4000-8000-000000000013', sort: 4, label: 'Studio', url: '/studio/' },
-].map((item) => ({
-  tenant_id: tenantId,
-  status: 'published',
-  location: 'header',
-  open_in_new_tab: false,
-  ...item,
-}));
-
-// ----- Product categories -----
-const categories = [
+const candidateRows = [
   {
-    id: '20000000-0000-4000-8000-000000000300',
-    tenant_id: tenantId,
-    status: 'published',
-    slug: 'bags',
-    name: 'Ita Bags',
-    description: 'Backpack, tote, and crossbody display bags designed around your collection.',
-    sort: 1,
+    id: '31000000-0000-4000-8000-000000000001',
+    external_id: 'b0000000-0000-4000-8000-000000000001',
+    query: 'how to choose ita bag insert size',
+    intent: 'informational',
+    page_type: 'guide',
+    channel: 'seo',
+    action: 'CREATE',
+    score: 86,
+    reason: '站点缺少尺寸指南，查询意图明确且能自然导向产品页。',
+    status: 'new',
+    discovered_at: '2026-10-20T02:00:00Z',
+    last_synced_at: '2026-10-22T02:00:00Z',
   },
   {
-    id: '20000000-0000-4000-8000-000000000301',
-    tenant_id: tenantId,
-    status: 'published',
-    slug: 'inserts',
-    name: 'Inserts & Display',
-    description: 'Removable inserts, window panels, and protective accessories for display arrangements.',
-    sort: 2,
+    id: '31000000-0000-4000-8000-000000000002',
+    external_id: 'b0000000-0000-4000-8000-000000000002',
+    query: 'ita bag vs backpack',
+    intent: 'commercial_investigation',
+    page_type: 'comparison',
+    channel: 'seo',
+    action: 'CREATE',
+    score: 74,
+    reason: '对比型搜索可覆盖新客，但需避免与现有背包文章重复。',
+    status: 'new',
+    discovered_at: '2026-10-20T02:05:00Z',
+    last_synced_at: '2026-10-22T02:00:00Z',
+  },
+  {
+    id: '31000000-0000-4000-8000-000000000003',
+    external_id: 'b0000000-0000-4000-8000-000000000003',
+    query: 'custom ita bag manufacturer',
+    intent: 'transactional',
+    page_type: 'commercial',
+    channel: 'sem_google',
+    action: 'CREATE',
+    score: 81,
+    reason: '高购买意图查询适合搜索广告承接，落地页需与定制产品页一致。',
+    status: 'new',
+    discovered_at: '2026-10-21T02:00:00Z',
+    last_synced_at: '2026-10-22T02:00:00Z',
+  },
+  {
+    id: '31000000-0000-4000-8000-000000000004',
+    external_id: 'b0000000-0000-4000-8000-000000000004',
+    query: 'ita bag convention setup ideas',
+    intent: 'inspirational',
+    page_type: 'community_topic',
+    channel: 'social_meta',
+    action: 'CREATE',
+    score: 68,
+    reason: '展会季话题适合社媒传播，可导流到尺寸指南与产品页。',
+    status: 'new',
+    discovered_at: '2026-10-21T02:10:00Z',
+    last_synced_at: '2026-10-22T02:00:00Z',
+  },
+].map((row) => ({ ...row, tenant: tenant.id }));
+
+const deliverableRows = [
+  {
+    id: '32000000-0000-4000-8000-000000000001',
+    external_key: 'ita-bag-lab:article:insert-size-guide',
+    candidate: candidateRows[0].id,
+    kind: 'article',
+    status: 'ready',
+    title: 'How to Choose the Right Ita Bag Insert Size',
+    slug: 'ita-bag-insert-size-guide',
+    excerpt:
+      'Measure the collection, the window, and the bag opening before choosing an insert size. A short guide with a practical measuring sequence.',
+    body_md: [
+      '## Start with the collection, not the bag',
+      '',
+      'Measure the outer dimensions of the pins, cards, and plush pieces you actually plan to display. Add clearance for pin backs, chains, and sleeves.',
+      '',
+      '## Measure the usable window',
+      '',
+      'Use the inner opening, not the outer panel. Leave at least 10 mm between the insert edge and the seam.',
+      '',
+      '## Check the bag opening',
+      '',
+      'The insert must pass through the opening without bending. If it does not, split the insert into two panels.',
+    ].join('\n'),
+    seo_title: 'How to Choose an Ita Bag Insert Size',
+    seo_description:
+      'A practical measuring sequence for choosing an ita bag insert size: collection dimensions, usable window area, and bag opening clearance.',
+    keywords: ['ita bag insert size', 'ita bag dimensions', 'ita bag insert'],
+    canonical_url: '',
+    target_post_type: 'post',
+    target_categories: ['Guides'],
+    target_tags: ['ita bag', 'sizing'],
+    featured_image_url: '',
+    ai_model: 'gpt-5',
+    ai_run_id: 'run-demo-001',
+  },
+  {
+    id: '32000000-0000-4000-8000-000000000002',
+    external_key: 'ita-bag-lab:product:sakura-panel-bag',
+    candidate: null,
+    kind: 'product',
+    status: 'planned',
+    title: 'Sakura Panel Ita Bag',
+    slug: 'sakura-panel-ita-bag',
+    excerpt: 'A compact crossbody ita bag with a shaped clear panel and a removable insert.',
+    body_md: [
+      '## Overview',
+      '',
+      'A compact crossbody format built around a shaped display window. The removable insert keeps pin backs away from the lining.',
+      '',
+      '## Specification',
+      '',
+      '- Window: 18 x 24 cm shaped panel',
+      '- Material: nylon outer, polyester lining, 0.5 mm PVC window',
+      '- Insert: 6 mm foam with hook-and-loop attachment',
+    ].join('\n'),
+    seo_title: 'Sakura Panel Ita Bag',
+    seo_description:
+      'Compact crossbody ita bag with a shaped clear panel, removable foam insert, and custom color options.',
+    keywords: ['sakura ita bag', 'crossbody ita bag'],
+    target_post_type: 'product',
+    target_categories: ['Ita Bags'],
+    target_tags: ['ita bag', 'crossbody'],
+    featured_image_url: '',
+    payload: {
+      sku: 'ITA-SAKURA-01',
+      price: '32.00',
+      currency: 'USD',
+      stock_status: 'instock',
+      attributes: {
+        Color: ['Sakura pink', 'Ink black'],
+        Panel: ['Heart', 'Rectangle'],
+      },
+    },
+    ai_model: 'gpt-5',
+    ai_run_id: 'run-demo-002',
+  },
+].map((row) => ({ ...row, tenant: tenant.id }));
+
+const runRows = [
+  {
+    id: '33000000-0000-4000-8000-000000000001',
+    tenant: tenant.id,
+    deliverable: deliverableRows[0].id,
+    workflow: 'candidate-to-deliverable',
+    execution_id: 'demo-exec-001',
+    status: 'success',
+    started_at: '2026-10-22T02:10:00Z',
+    finished_at: '2026-10-22T02:11:20Z',
+    payload_summary: { candidates: 2, deliverables: 1, model: 'gpt-5' },
   },
 ];
 
-// ----- Products -----
-const products = [
-  {
-    id: '20000000-0000-4000-8000-000000000400',
-    tenant_id: tenantId,
-    status: 'published',
-    slug: 'custom-ita-bag-backpack',
-    name: 'Custom Ita Bag Backpack',
-    description: 'A backpack-format display bag with a clear front window and removable insert, configured around your collection.',
-    category: categories[0].id,
-    price_from: '18.50',
-    price_currency: 'USD',
-    lead_time: '25-35 days after sample approval',
-    image: '',
-    features: [
-      { label: 'Window area', detail: 'Up to 28 x 38 cm clear display zone on the front panel.' },
-      { label: 'Insert system', detail: 'Removable padded insert keeps pin backs away from the lining.' },
-      { label: 'Carrying', detail: 'Padded shoulder straps and a top handle for daily use.' },
-    ],
-    specs: [
-      { dimension: 'Material', value: 'Nylon outer, polyester lining, PVC window' },
-      { dimension: 'Capacity', value: 'Fits pins, cards, and small plush accessories' },
-      { dimension: 'Closure', value: 'Two-way zipper with custom pull tab' },
-    ],
-    word_count: 180,
-    ai_prompt: 'Write a concise product description for a custom Ita Bag backpack aimed at small-batch buyers, highlighting the display window and removable insert.',
-    ai_model: 'gpt-4o',
-    ai_generated_at: '2026-09-08T00:00:00Z',
-    sort: 1,
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000401',
-    tenant_id: tenantId,
-    status: 'published',
-    slug: 'removable-insert-system',
-    name: 'Removable Display Insert',
-    description: 'A foam-backed insert that secures pins and can be swapped between bags to change arrangements quickly.',
-    category: categories[1].id,
-    price_from: '4.20',
-    price_currency: 'USD',
-    lead_time: '15-20 days',
-    image: '',
-    features: [
-      { label: 'Protection', detail: 'Soft foam layer prevents pin backs from scratching the bag lining.' },
-      { label: 'Swapability', detail: 'Lightweight enough to move between bags in seconds.' },
-      { label: 'Custom shapes', detail: 'Cut to match any window geometry.' },
-    ],
-    specs: [
-      { dimension: 'Thickness', value: '6 mm foam with fabric face' },
-      { dimension: 'Attachment', value: 'Hook-and-loop strips along the insert edge' },
-      { dimension: 'Finish', value: 'Available in black, white, and custom colors' },
-    ],
-    sort: 2,
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000402',
-    tenant_id: tenantId,
-    status: 'published',
-    slug: 'clear-window-panel-set',
-    name: 'Clear Window Panel Set',
-    description: 'Replacement clear panels for custom display configurations, including standard and shaped windows.',
-    category: categories[1].id,
-    price_from: '2.80',
-    price_currency: 'USD',
-    lead_time: '10-15 days',
-    image: '',
-    features: [
-      { label: 'Clarity', detail: 'Glossy PVC panel with high optical transparency.' },
-      { label: 'Shapes', detail: 'Rectangular, heart, star, and custom outline options.' },
-      { label: 'Reinforced edge', detail: 'Welded seam prevents panel separation under load.' },
-    ],
-    specs: [
-      { dimension: 'Thickness', value: '0.5 mm food-grade PVC' },
-      { dimension: 'Sizing', value: 'Custom dimensions to the nearest mm' },
-      { dimension: 'Compatibility', value: 'Fits all standard ita bag formats' },
-    ],
-    sort: 3,
-  },
-];
-
-// ----- Pages -----
-// Customization page migrated from local Markdown.
-const customizationPage = {
-  id: '20000000-0000-4000-8000-000000000101',
-  tenant_id: tenantId,
-  status: 'published',
-  path: '/custom/custom-ita-bag-design/',
-  page_type: 'customization',
-  title: 'Custom Ita Bag Design Options for Small-Batch Projects',
-  seo_title: 'Custom Ita Bag Design Options',
-  description: 'Plan a custom Ita Bag with practical choices for bag format, display window, insert, materials, artwork, sampling, and production review.',
-  eyebrow: 'Customization',
-  lead: 'Turn display needs, bag format, materials, and production constraints into a decision-ready brief.',
-  primary_topic: 'Custom Ita Bag design',
-  topic_id: 'custom-ita-bag-design',
-  related_topic_ids: ['ita-bag-design-guide'],
-  published_at: '2026-09-08T00:00:00Z',
-  noindex: false,
-  target_keyword: 'custom ita bag design',
-  word_count: 420,
-  reading_time_minutes: 3,
-  ai_prompt: 'Write a practical customization guide for small-batch Ita Bag production, covering format choice, specification, sampling, and inquiry preparation.',
-  ai_model: 'gpt-4o',
-  ai_generated_at: '2026-09-08T00:00:00Z',
-  internal_links: [
-    { path: '/guides/how-to-design-an-ita-bag/', label: 'How to design an Ita Bag' },
-    { path: '/products/custom-ita-bag-backpack/', label: 'Custom Ita Bag Backpack' },
-  ],
-};
-
-const customizationBlocks = [
-  {
-    id: '20000000-0000-4000-8000-000000000500',
-    tenant_id: tenantId, sort: 1, page: customizationPage.id,
-    block_type: 'text',
-    body: '<p>An effective custom Ita Bag starts with the display collection, not a list of decorative options. Pin size, photocard sleeves, plush accessories, and the way the bag will be carried determine the useful window area, insert construction, and overall bag format.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000501',
-    tenant_id: tenantId, sort: 2, page: customizationPage.id,
-    block_type: 'options',
-    items: [
-      { label: 'Bag format', detail: 'Backpack, tote, crossbody, and compact formats suit different display areas and carrying loads.' },
-      { label: 'Display window', detail: 'Window shape and usable dimensions should follow the collection you actually plan to display.' },
-      { label: 'Insert system', detail: 'A removable insert keeps pins away from the main lining and makes arrangements easier to change.' },
-      { label: 'Exterior details', detail: 'Color, print, embroidery, webbing, zipper, and hardware choices should be reviewed as one coordinated system.' },
-    ],
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000502',
-    tenant_id: tenantId, sort: 3, page: customizationPage.id,
-    block_type: 'heading',
-    heading: 'Choose the product architecture first',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000503',
-    tenant_id: tenantId, sort: 4, page: customizationPage.id,
-    block_type: 'text',
-    body: '<p>Decide whether the project needs a backpack, tote, crossbody, or compact bag. Then map the display zone and storage zone separately. A larger clear panel can improve visibility, but it also changes structure, privacy, weight distribution, and the space left for everyday storage.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000504',
-    tenant_id: tenantId, sort: 5, page: customizationPage.id,
-    block_type: 'steps',
-    items: [
-      { name: 'Define scope', text: 'Define users, display items, target quantity, budget range, and delivery window.' },
-      { name: 'Confirm specification', text: 'Confirm dimensions, materials, artwork files, construction details, and packaging requirements.' },
-      { name: 'Review sample', text: 'Review a sample for appearance, fit, usability, and workmanship before approving production.' },
-    ],
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000505',
-    tenant_id: tenantId, sort: 6, page: customizationPage.id,
-    block_type: 'cta',
-    heading: 'Start your project brief',
-    body: '<p>Send a concise brief with reference images, annotated dimensions, artwork files, target quantity, destination, and required date.</p>',
-    cta_label: 'Request a quotation',
-    cta_url: '/custom/',
-  },
-];
-
-// Guide page migrated from local Markdown.
-const guidePage = {
-  id: '20000000-0000-4000-8000-000000000102',
-  tenant_id: tenantId,
-  status: 'published',
-  path: '/guides/how-to-design-an-ita-bag/',
-  page_type: 'guide',
-  title: 'How to Design an Ita Bag: A Practical Planning Guide',
-  seo_title: 'How to Design an Ita Bag',
-  description: 'Learn how to plan an Ita Bag around your collection, choose the bag and display layout, protect items, prototype the arrangement, and prepare a clear brief.',
-  eyebrow: 'Guides',
-  lead: 'Focused guidance for turning a collection idea into a practical display and carrying system.',
-  primary_topic: 'How to design an Ita Bag',
-  topic_id: 'ita-bag-design-guide',
-  related_topic_ids: ['custom-ita-bag-design'],
-  published_at: '2026-09-08T00:00:00Z',
-  noindex: false,
-  target_keyword: 'how to design an ita bag',
-  word_count: 510,
-  reading_time_minutes: 4,
-  ai_prompt: 'Write a step-by-step guide for designing an Ita Bag, starting from the collection and ending with a production-ready brief.',
-  ai_model: 'gpt-4o',
-  ai_generated_at: '2026-09-08T00:00:00Z',
-  internal_links: [
-    { path: '/custom/custom-ita-bag-design/', label: 'Custom Ita Bag design options' },
-  ],
-};
-
-const guideBlocks = [
-  {
-    id: '20000000-0000-4000-8000-000000000600',
-    tenant_id: tenantId, sort: 1, page: guidePage.id,
-    block_type: 'steps',
-    items: [
-      { name: 'Inventory the collection', text: 'Measure the pins, cards, keychains, or plush pieces you want to display and choose the priority items.' },
-      { name: 'Select the bag format', text: 'Match carrying style, storage needs, and expected load before deciding the window size.' },
-      { name: 'Plan the display zone', text: 'Arrange full-size paper templates with safe spacing for pin backs, chains, and visual balance.' },
-      { name: 'Prototype and review', text: 'Test the insert inside the actual bag, load the collection, and revise access, comfort, and stability.' },
-    ],
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000601',
-    tenant_id: tenantId, sort: 2, page: guidePage.id,
-    block_type: 'heading',
-    heading: '1. Measure what you want to display',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000602',
-    tenant_id: tenantId, sort: 3, page: guidePage.id,
-    block_type: 'text',
-    body: '<p>List the pieces that must fit and measure their real outer dimensions. Include pin backs, chains, sleeves, ribbons, and any clearance needed between objects. If the collection rotates, define a typical arrangement rather than trying to fit every item at once.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000603',
-    tenant_id: tenantId, sort: 4, page: guidePage.id,
-    block_type: 'heading',
-    heading: '2. Choose the carrying format',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000604',
-    tenant_id: tenantId, sort: 5, page: guidePage.id,
-    block_type: 'text',
-    body: '<p>A backpack distributes a larger load differently from a tote or crossbody bag. Think about travel, daily storage, opening access, strap adjustment, and how the display faces outward while carried.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000605',
-    tenant_id: tenantId, sort: 6, page: guidePage.id,
-    block_type: 'heading',
-    heading: '3. Prototype the composition',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000606',
-    tenant_id: tenantId, sort: 7, page: guidePage.id,
-    block_type: 'text',
-    body: '<p>Cut a paper rectangle to the usable insert size and arrange the real objects or paper outlines on it. Leave room around edges and closures. Photograph promising layouts so you can compare dense, symmetrical, color-led, and focal-point compositions.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000607',
-    tenant_id: tenantId, sort: 8, page: guidePage.id,
-    block_type: 'heading',
-    heading: '4. Protect and secure the collection',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000608',
-    tenant_id: tenantId, sort: 9, page: guidePage.id,
-    block_type: 'text',
-    body: '<p>Use an insert that is suitable for the attachment method and can be removed without stressing the bag. Check sharp pin backs, loose chains, friction between objects, and pressure against the clear panel.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000609',
-    tenant_id: tenantId, sort: 10, page: guidePage.id,
-    block_type: 'heading',
-    heading: '5. Test before finalizing',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000610',
-    tenant_id: tenantId, sort: 11, page: guidePage.id,
-    block_type: 'text',
-    body: '<p>Load the bag with the items you normally carry, walk with it, open each compartment, and inspect the display after use. For a custom production project, turn the successful prototype into an annotated brief and review a physical sample before approving quantity production.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000611',
-    tenant_id: tenantId, sort: 12, page: guidePage.id,
-    block_type: 'cta',
-    heading: 'Plan a custom production run',
-    body: '<p>When your prototype works, move to the customization brief to define materials, quantities, and sampling.</p>',
-    cta_label: 'Customization options',
-    cta_url: '/custom/custom-ita-bag-design/',
-  },
-];
-
-// CMS verification page.
-const fromCmsPage = {
-  id: '20000000-0000-4000-8000-000000000100',
-  tenant_id: tenantId,
-  status: 'published',
-  path: '/guides/from-cms/',
-  page_type: 'guide',
-  title: 'A CMS-controlled guide rendered from structured blocks',
-  seo_title: 'Structured CMS Block Guide',
-  description: 'Verify that the publishing backend controls page structure, JSON-LD, FAQ entries, and calls to action through typed content blocks.',
-  eyebrow: 'CMS verification',
-  lead: 'Every section of this page is a structured block authored in Directus rather than a single free-form HTML field.',
-  primary_topic: 'Directus structured blocks',
-  topic_id: 'cms-blocks',
-  related_topic_ids: ['cms-blocks'],
-  published_at: '2026-10-02T00:00:00Z',
-  noindex: false,
-};
-
-const fromCmsBlocks = [
-  {
-    id: '20000000-0000-4000-8000-000000000200',
-    tenant_id: tenantId, sort: 1, page: fromCmsPage.id,
-    block_type: 'heading',
-    heading: 'How block control works',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000201',
-    tenant_id: tenantId, sort: 2, page: fromCmsPage.id,
-    block_type: 'text',
-    body: '<p>The build reads only published pages, then maps each typed block to a dedicated page component and its structured-data entry.</p>',
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000202',
-    tenant_id: tenantId, sort: 3, page: fromCmsPage.id,
-    block_type: 'steps',
-    items: [
-      { name: 'Author', text: 'Create typed blocks in Directus.' },
-      { name: 'Review', text: 'Move the page through review before publishing.' },
-      { name: 'Build', text: 'Astro renders blocks and JSON-LD at build time.' },
-    ],
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000203',
-    tenant_id: tenantId, sort: 4, page: fromCmsPage.id,
-    block_type: 'faq',
-    items: [
-      { question: 'Can a draft page reach the public site?', answer: 'No. The build filter only accepts the published status.' },
-      { question: 'Where do structured blocks live?', answer: 'In the cms_blocks collection, owned by a cms_pages item.' },
-    ],
-  },
-  {
-    id: '20000000-0000-4000-8000-000000000204',
-    tenant_id: tenantId, sort: 5, page: fromCmsPage.id,
-    block_type: 'cta',
-    heading: 'See the developer loop',
-    body: '<p>The studio page demonstrates the underlying SEO workflow.</p>',
-    cta_label: 'Open Studio',
-    cta_url: '/studio/',
-  },
-];
-
-async function request(path, options) {
+async function request(path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -409,22 +201,41 @@ async function request(path, options) {
   return response.status === 204 ? null : response.json();
 }
 
-async function upsert(collection, item) {
-  const { id } = item;
-  try {
-    await request(`/items/${collection}/${id}`, { method: 'PATCH', body: JSON.stringify(item) });
-    console.log(`updated ${collection}/${id}`);
-  } catch (error) {
-    if (!String(error).includes('403') && !String(error).includes('404')) throw error;
-    await request(`/items/${collection}`, { method: 'POST', body: JSON.stringify(item) });
-    console.log(`created ${collection}/${id}`);
+async function upsertBy(collection, keyField, keyValue, item) {
+  const query = `/items/${collection}?filter[${keyField}][_eq]=${encodeURIComponent(keyValue)}&limit=1`;
+  const existing = await request(query);
+  const current = existing.data?.[0];
+
+  if (current) {
+    if (dryRun) {
+      console.log(`[dry-run] update ${collection}/${current.id} (${keyField}=${keyValue})`);
+      return current.id;
+    }
+    const { id: _id, ...patch } = item;
+    await request(`/items/${collection}/${current.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    console.log(`updated ${collection}/${current.id} (${keyField}=${keyValue})`);
+    return current.id;
   }
+
+  if (dryRun) {
+    console.log(`[dry-run] create ${collection}/${item.id} (${keyField}=${keyValue})`);
+    return item.id;
+  }
+  await request(`/items/${collection}`, { method: 'POST', body: JSON.stringify(item) });
+  console.log(`created ${collection}/${item.id} (${keyField}=${keyValue})`);
+  return item.id;
 }
 
-await upsert('cms_sites', site);
-for (const item of navigation) await upsert('cms_navigation', item);
-for (const item of categories) await upsert('cms_product_categories', item);
-for (const item of products) await upsert('cms_products', item);
-for (const item of [customizationPage, guidePage, fromCmsPage]) await upsert('cms_pages', item);
-for (const item of [...customizationBlocks, ...guideBlocks, ...fromCmsBlocks]) await upsert('cms_blocks', item);
-console.log('Seed complete.');
+await upsertBy('tenants', 'slug', tenant.slug, tenant);
+for (const row of candidateRows) await upsertBy('candidates', 'external_id', row.external_id, row);
+for (const row of deliverableRows) await upsertBy('deliverables', 'external_key', row.external_key, row);
+for (const row of runRows) await upsertBy('runs', 'execution_id', row.execution_id, row);
+
+console.log(
+  dryRun
+    ? 'Dry run complete. No records were written.'
+    : 'Seed complete: 1 tenant, 4 candidates, 2 deliverables, 1 run.',
+);

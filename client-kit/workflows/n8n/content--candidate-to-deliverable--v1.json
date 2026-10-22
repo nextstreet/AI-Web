@@ -1,0 +1,583 @@
+{
+  "name": "content--candidate-to-deliverable--v1",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Candidate → Deliverable\n\n**前置条件**\n- Directus 已应用 4 集合快照\n- 候选已在 Directus 中置为 `approved`\n- `tenants.enabled = true`\n\n**导入后必须修改**\n1. `Config` 节点：`directusUrl`、`aiEndpoint`、`aiModel`\n2. 为 Directus 与 AI 两个 HTTP 节点重新选择凭据\n3. 先点“手动测试”，确认后再启用定时触发\n\n**行为**\n- 按 `tenant.slug:kind:candidate.external_id` 生成幂等键\n- 已存在交付物则跳过\n- AI 产出写入 `deliverables`（`status=ready`）\n- 成功/失败写入 `runs`",
+        "height": 360,
+        "width": 420,
+        "color": 4
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c01",
+      "name": "说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-460, -40]
+    },
+    {
+      "parameters": {},
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c02",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-20, -120]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c03",
+      "name": "每 15 分钟",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-20, 80]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9a1b2c3d-0001-4e5f-8a9b-0c1d2e3f4a01",
+              "name": "directusUrl",
+              "value": "http://127.0.0.1:8055",
+              "type": "string"
+            },
+            {
+              "id": "9a1b2c3d-0002-4e5f-8a9b-0c1d2e3f4a02",
+              "name": "aiEndpoint",
+              "value": "https://api.openai.com/v1/chat/completions",
+              "type": "string"
+            },
+            {
+              "id": "9a1b2c3d-0003-4e5f-8a9b-0c1d2e3f4a03",
+              "name": "aiModel",
+              "value": "gpt-4.1-mini",
+              "type": "string"
+            },
+            {
+              "id": "9a1b2c3d-0004-4e5f-8a9b-0c1d2e3f4a04",
+              "name": "batchLimit",
+              "value": 50,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c04",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, -20]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.directusUrl }}/items/candidates",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "approved"
+            },
+            {
+              "name": "filter[channel][_eq]",
+              "value": "seo"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.batchLimit }}"
+            },
+            {
+              "name": "fields",
+              "value": "*,tenant.*"
+            },
+            {
+              "name": "sort",
+              "value": "-score"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c05",
+      "name": "Fetch approved candidates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, -20],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nconst config = $('Config').first().json;\n\nfor (const item of $input.all()) {\n  for (const candidate of item.json.data ?? []) {\n    const tenant = candidate.tenant;\n    if (!tenant || tenant.enabled === false) continue;\n    if (!candidate.external_id) continue;\n    if ((candidate.channel || 'seo') !== 'seo') continue;\n\n    const kind = candidate.page_type === 'product' ? 'product' : 'article';\n    const externalKey = `${tenant.slug}:${kind}:${candidate.external_id}`;\n\n    out.push({\n      json: {\n        candidateId: candidate.id,\n        candidateExternalId: candidate.external_id,\n        tenantId: tenant.id,\n        tenantSlug: tenant.slug,\n        locale: tenant.locale || 'en',\n        market: tenant.market || '',\n        brandVoice: tenant.brand_voice || '',\n        seoPlugin: tenant.seo_plugin || 'none',\n        query: candidate.query,\n        intent: candidate.intent || '',\n        pageType: candidate.page_type || 'guide',\n        score: candidate.score ?? null,\n        reason: candidate.reason || '',\n        kind,\n        targetPostType: kind === 'product' ? 'product' : 'post',\n        externalKey,\n        directusUrl: config.directusUrl,\n        aiEndpoint: config.aiEndpoint,\n        aiModel: config.aiModel,\n      },\n    });\n  }\n}\n\nreturn out;",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c06",
+      "name": "Prepare candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, -20]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c07",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [860, -20]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.directusUrl }}/items/deliverables",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[external_key][_eq]",
+              "value": "={{ $json.externalKey }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            },
+            {
+              "name": "fields",
+              "value": "id,external_key,status"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c08",
+      "name": "Find existing deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "exists-condition",
+              "leftValue": "={{ ($json.data ?? []).length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c09",
+      "name": "Already exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1300, 100]
+    },
+    {
+      "parameters": {},
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0a",
+      "name": "Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1520, 20]
+    },
+    {
+      "parameters": {
+        "jsCode": "const candidate = $('Loop Over Items').item.json;\n\nconst systemPrompt = [\n  'You are an SEO content planner for a client WordPress site.',\n  `Locale: ${candidate.locale}. Market: ${candidate.market || 'unspecified'}.`,\n  `Brand voice: ${candidate.brandVoice || 'clear, specific, no hype'}.`,\n  'Return JSON only with these keys: title, slug, excerpt, body_md, seo_title, seo_description, keywords, target_categories, target_tags.',\n  'body_md must be Markdown using H2 sections and no H1.',\n  'Do not invent prices, certifications, material specifications, or product dimensions. Use TBD where a fact is missing.',\n].join('\\n');\n\nconst userPrompt = [\n  `Target query: ${candidate.query}`,\n  `Search intent: ${candidate.intent || 'unspecified'}`,\n  `Planned page type: ${candidate.pageType}`,\n  `Why it was approved: ${candidate.reason}`,\n  candidate.kind === 'product'\n    ? 'Write a product page draft with an overview, specification placeholders marked TBD, and a short FAQ.'\n    : 'Write an article draft of 700-1000 words with practical, non-generic sections.',\n].join('\\n');\n\nreturn [{\n  json: {\n    ...candidate,\n    systemPrompt,\n    userPrompt,\n    startedAt: new Date().toISOString(),\n  },\n}];",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0b",
+      "name": "Build prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.aiEndpoint }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.aiModel, temperature: 0.4, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $json.systemPrompt }, { role: 'user', content: $json.userPrompt } ] }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0c",
+      "name": "AI generate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-ai-credential-id",
+          "name": "AI API Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices?.[0]?.message?.content;\nif (!raw) throw new Error('AI response missing choices[0].message.content');\n\nconst cleaned = String(raw).replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  throw new Error(`AI response is not valid JSON: ${error.message}`);\n}\n\nif (!parsed.title || !parsed.body_md) {\n  throw new Error('AI response must include title and body_md');\n}\n\nconst candidate = $('Build prompt').item.json;\nconst slug = String(parsed.slug || parsed.title)\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 80);\n\nreturn [{\n  json: {\n    deliverable: {\n      tenant: candidate.tenantId,\n      candidate: candidate.candidateId,\n      external_key: candidate.externalKey,\n      kind: candidate.kind,\n      status: 'ready',\n      title: parsed.title,\n      slug,\n      excerpt: parsed.excerpt || '',\n      body_md: parsed.body_md,\n      seo_title: parsed.seo_title || parsed.title,\n      seo_description: parsed.seo_description || parsed.excerpt || '',\n      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],\n      target_post_type: candidate.targetPostType,\n      target_categories: Array.isArray(parsed.target_categories) ? parsed.target_categories : [],\n      target_tags: Array.isArray(parsed.target_tags) ? parsed.target_tags : [],\n      ai_model: candidate.aiModel,\n      ai_run_id: $execution.id,\n    },\n  },\n}];",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0d",
+      "name": "Parse output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 180],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Build prompt').item.json.directusUrl }}/items/deliverables",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.deliverable) }}",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0e",
+      "name": "Create deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2180, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Build prompt').item.json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Parse output').item.json.deliverable.tenant, deliverable: $json.data.id, workflow: 'candidate-to-deliverable', execution_id: $execution.id, status: 'success', started_at: $('Build prompt').item.json.startedAt, finished_at: new Date().toISOString(), payload_summary: { candidate: $('Parse output').item.json.deliverable.candidate, external_key: $('Parse output').item.json.deliverable.external_key, model: $('Parse output').item.json.deliverable.ai_model } }) }}",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0f",
+      "name": "Record success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Loop Over Items').item.json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').item.json.tenantId, workflow: 'candidate-to-deliverable', execution_id: $execution.id, status: 'failed', started_at: $('Build prompt').isExecuted ? $('Build prompt').first().json.startedAt : null, finished_at: new Date().toISOString(), error: String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "options": {}
+      },
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c10",
+      "name": "Record failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {},
+      "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c11",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1080, -160]
+    }
+  ],
+  "connections": {
+    "手动测试": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每 15 分钟": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch approved candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch approved candidates": {
+      "main": [
+        [
+          {
+            "node": "Prepare candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare candidates": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find existing deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find existing deliverable": {
+      "main": [
+        [
+          {
+            "node": "Already exists?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already exists?": {
+      "main": [
+        [
+          {
+            "node": "Skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prompt": {
+      "main": [
+        [
+          {
+            "node": "AI generate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI generate": {
+      "main": [
+        [
+          {
+            "node": "Parse output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse output": {
+      "main": [
+        [
+          {
+            "node": "Create deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create deliverable": {
+      "main": [
+        [
+          {
+            "node": "Record success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record failure": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

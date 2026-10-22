@@ -1,0 +1,627 @@
+{
+  "name": "content--campaign-asset-to-channel--v1",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Campaign Asset → Webhook\n\n**前置条件**\n- 交付物 `kind` 为 `social_post` 或 `sem_landing`，`status = approved`\n- `payload.platform` 已由生成流程写入（`google_ads` / `meta` / `linkedin` / `generic`）\n- 已有一个接收素材的中转地址（Zapier / Make / 自建服务）\n\n**导入后必须修改**\n1. `Config.webhookUrl`\n2. Directus 与 Webhook 两个 Header Auth 凭据\n3. 先“手动测试”，确认后再启用定时触发\n\n**行为**\n- Claim 后把结构化素材 POST 到 webhook\n- `Idempotency-Key = deliverables.external_key`，中转方可据此去重\n- 成功写回 `status=pushed` 与 `payload.delivery`\n- 失败置 `failed` 并写 `last_error`，同时写 `runs`\n\n**边界**\n- 不直接调用 Google Ads / Meta / LinkedIn API\n- 同一交付物只投递一次；修改后重新投递需先改回 `approved` 并让中转方忽略幂等键",
+        "height": 460,
+        "width": 420,
+        "color": 4
+      },
+      "id": "d1e2f3a4-0001-4b5c-9d0e-1f2a3b4c5d01",
+      "name": "说明",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        -320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d1e2f3a4-0002-4b5c-9d0e-1f2a3b4c5d02",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "d1e2f3a4-0003-4b5c-9d0e-1f2a3b4c5d03",
+      "name": "每 30 分钟",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -40,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1e2f3a4-1001-4b5c-9d0e-1f2a3b4c5d01",
+              "name": "directusUrl",
+              "value": "http://127.0.0.1:8055",
+              "type": "string"
+            },
+            {
+              "id": "d1e2f3a4-1002-4b5c-9d0e-1f2a3b4c5d02",
+              "name": "webhookUrl",
+              "value": "https://example.com/hooks/campaign-asset",
+              "type": "string"
+            },
+            {
+              "id": "d1e2f3a4-1003-4b5c-9d0e-1f2a3b4c5d03",
+              "name": "batchLimit",
+              "value": 20,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1e2f3a4-0004-4b5c-9d0e-1f2a3b4c5d04",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        180,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.directusUrl }}/items/deliverables",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "filter[status][_eq]",
+              "value": "approved"
+            },
+            {
+              "name": "filter[kind][_in]",
+              "value": "social_post,sem_landing"
+            },
+            {
+              "name": "limit",
+              "value": "={{ $json.batchLimit }}"
+            },
+            {
+              "name": "fields",
+              "value": "*,tenant.*"
+            },
+            {
+              "name": "sort",
+              "value": "date_created"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1e2f3a4-0005-4b5c-9d0e-1f2a3b4c5d05",
+      "name": "Fetch approved campaign assets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Config').first().json;\nconst out = [];\n\nfor (const item of $input.all()) {\n  for (const d of item.json.data ?? []) {\n    const tenant = d.tenant;\n    if (!tenant || tenant.enabled === false) continue;\n    if (!['social_post', 'sem_landing'].includes(d.kind)) continue;\n    if (!d.payload || typeof d.payload !== 'object') continue;\n\n    out.push({\n      json: Object.assign({}, d, {\n        tenant: tenant,\n        tenantId: tenant.id,\n        tenantSlug: tenant.slug,\n        directusUrl: config.directusUrl,\n        webhookUrl: config.webhookUrl,\n        startedAt: new Date().toISOString(),\n      }),\n    });\n  }\n}\n\nreturn out;",
+        "options": {}
+      },
+      "id": "d1e2f3a4-0006-4b5c-9d0e-1f2a3b4c5d06",
+      "name": "Prepare deliverables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "d1e2f3a4-0007-4b5c-9d0e-1f2a3b4c5d07",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        840,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'pushing' }) }}",
+        "options": {}
+      },
+      "id": "d1e2f3a4-0008-4b5c-9d0e-1f2a3b4c5d08",
+      "name": "Claim deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Loop Over Items').first().json;\nconst asset = d.payload && typeof d.payload === 'object' ? d.payload : {};\nconst platform = asset.platform || (d.kind === 'sem_landing' ? 'google_ads' : 'generic');\n\nconst body = {\n  source: 'ai-seo-saas/client-kit',\n  workflow: 'campaign-asset-to-channel',\n  execution_id: $execution.id,\n  deliverable_id: d.id,\n  external_key: d.external_key,\n  kind: d.kind,\n  platform: platform,\n  tenant: {\n    slug: d.tenant.slug,\n    locale: d.tenant.locale || 'en',\n    market: d.tenant.market || '',\n  },\n  scheduled_at: asset.scheduled_at || d.publish_at || null,\n  asset: asset,\n  preview: { title: d.title, body_md: d.body_md || '' },\n};\n\nreturn [{\n  json: {\n    deliverableId: d.id,\n    tenantId: d.tenantId,\n    directusUrl: d.directusUrl,\n    externalKey: d.external_key,\n    platform: platform,\n    asset: asset,\n    webhookUrl: d.webhookUrl,\n    webhookBody: body,\n    startedAt: d.startedAt,\n  },\n}];",
+        "options": {}
+      },
+      "id": "d1e2f3a4-0009-4b5c-9d0e-1f2a3b4c5d09",
+      "name": "Build webhook payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -60
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.externalKey }}"
+            },
+            {
+              "name": "X-Source",
+              "value": "ai-seo-saas/client-kit"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.webhookBody) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "d1e2f3a4-000a-4b5c-9d0e-1f2a3b4c5d0a",
+      "name": "Push to webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1500,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-webhook-credential-id",
+          "name": "Webhook Relay Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Build webhook payload').first().json;\nconst response = $json && typeof $json === 'object' ? $json : {};\n\nconst delivery = {\n  external_id: response.external_id || response.id || null,\n  external_url: response.external_url || response.url || null,\n  remote_status: response.status || 'accepted',\n  delivered_at: new Date().toISOString(),\n};\n\nconst mergedPayload = Object.assign({}, base.asset, { delivery: delivery });\n\nreturn [{ json: Object.assign({}, base, { mergedPayload: mergedPayload, delivery: delivery }) }];",
+        "options": {}
+      },
+      "id": "d1e2f3a4-000b-4b5c-9d0e-1f2a3b4c5d0b",
+      "name": "Normalize delivery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        -60
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.deliverableId }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'pushed', pushed_at: new Date().toISOString(), last_error: null, payload: $json.mergedPayload }) }}",
+        "options": {}
+      },
+      "id": "d1e2f3a4-000c-4b5c-9d0e-1f2a3b4c5d0c",
+      "name": "Write back deliverable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1940,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normalize delivery').first().json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize delivery').first().json.tenantId, deliverable: $('Normalize delivery').first().json.deliverableId, workflow: 'campaign-asset-to-channel', execution_id: $execution.id, status: 'success', started_at: $('Normalize delivery').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { platform: $('Normalize delivery').first().json.platform, external_id: $('Normalize delivery').first().json.delivery.external_id, external_url: $('Normalize delivery').first().json.delivery.external_url, remote_status: $('Normalize delivery').first().json.delivery.remote_status } }) }}",
+        "options": {}
+      },
+      "id": "d1e2f3a4-000d-4b5c-9d0e-1f2a3b4c5d0d",
+      "name": "Record success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Loop Over Items').first().json;\nconst error = $json && $json.error ? $json.error : $json;\nconst message = String((error && (error.message || error.description)) || JSON.stringify(error)).slice(0, 2000);\n\nreturn [{\n  json: {\n    deliverableId: item.id,\n    tenantId: item.tenantId,\n    directusUrl: item.directusUrl,\n    startedAt: item.startedAt,\n    message: message,\n  },\n}];",
+        "options": {}
+      },
+      "id": "d1e2f3a4-000e-4b5c-9d0e-1f2a3b4c5d0e",
+      "name": "Capture error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.directusUrl + '/items/deliverables/' + $json.deliverableId }}",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: 'failed', last_error: $json.message }) }}",
+        "options": {}
+      },
+      "id": "d1e2f3a4-000f-4b5c-9d0e-1f2a3b4c5d0f",
+      "name": "Mark failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1940,
+        260
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Loop Over Items').first().json.directusUrl }}/items/runs",
+        "authentication": "genericCredentialType",
+        "genericCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'campaign-asset-to-channel', execution_id: $execution.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "options": {}
+      },
+      "id": "d1e2f3a4-0010-4b5c-9d0e-1f2a3b4c5d10",
+      "name": "Record failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        260
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "replace-with-directus-credential-id",
+          "name": "Directus Automation Token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {},
+      "id": "d1e2f3a4-0011-4b5c-9d0e-1f2a3b4c5d11",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -220
+      ]
+    }
+  ],
+  "connections": {
+    "手动测试": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每 30 分钟": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Fetch approved campaign assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch approved campaign assets": {
+      "main": [
+        [
+          {
+            "node": "Prepare deliverables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare deliverables": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Claim deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim deliverable": {
+      "main": [
+        [
+          {
+            "node": "Build webhook payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build webhook payload": {
+      "main": [
+        [
+          {
+            "node": "Push to webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push to webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize delivery",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize delivery": {
+      "main": [
+        [
+          {
+            "node": "Write back deliverable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write back deliverable": {
+      "main": [
+        [
+          {
+            "node": "Record success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record success": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture error": {
+      "main": [
+        [
+          {
+            "node": "Mark failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark failed": {
+      "main": [
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record failure": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

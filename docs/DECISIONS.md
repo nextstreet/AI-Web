@@ -65,8 +65,8 @@ Dedicated tables may be introduced later without changing their graph identity.
 
 ## ADR-009 — Directus is the reviewed publishing CMS
 
-**Status:** superseded for the self-use project by ADR-010; still applies to
-`client-kit/` (customer delivery).
+**Status:** superseded by ADR-010 for the self-use project and by ADR-011 for
+customer delivery.
 
 Directus owns editor-facing page bodies, navigation, and site presentation
 settings. Supabase continues to own operational SEO data and candidate state.
@@ -87,3 +87,17 @@ falls back to Markdown when `PAYLOAD_URL` is unset.
 Directus remains part of `client-kit/` for customer delivery. The two projects
 share the Supabase decision layer and `packages/*`, but never share a content
 backend: `apps/web` must not regain a Directus adapter.
+
+## ADR-011 — WordPress owns customer content; Directus is an operator console
+
+**Status:** accepted
+
+Customer sites run WordPress. The platform has no customer-facing frontend and
+no client accounts; Directus is a login-only console for the operator. It holds
+four collections: `tenants` (site/credential-reference/scenario config),
+`candidates` (projection of Supabase opportunities), `deliverables` (AI output
+and push targets), and `runs` (n8n execution history). Supabase remains the
+source of truth for decisions and metrics; n8n performs WordPress REST writes,
+starting with drafts and publishing only under the tenant's publish policy.
+Page templates, menus, and theme changes stay in WordPress. Directus must not
+regrow a page/block/static-site model or store WordPress credentials.
