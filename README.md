@@ -1,7 +1,11 @@
 # AI SEO SaaS V1
 
-面向独立站的多租户、意图驱动 AI SEO 系统第一版。第一验证租户为
-Custom Ita Bag，但核心引擎不绑定单一行业。
+仓库内含两个互相独立的项目，只共享 SEO 决策引擎与 Supabase 基础模型：
+
+| 项目 | 代码位置 | 内容后台 | 状态 |
+| --- | --- | --- | --- |
+| 自用独立站 | `apps/web` + `apps/cms` | Payload 3 | 主开发线 |
+| 客户交付套件 | `client-kit/` | Directus + n8n | 维护中，站点读取层待恢复 |
 
 V1 的目标不是“生成最多文章”，而是尽快跑通：
 
@@ -9,12 +13,19 @@ V1 的目标不是“生成最多文章”，而是尽快跑通：
 Facts -> Topic Graph -> Candidate -> Brief -> Review -> Page -> Performance
 ```
 
-## 快速开始
+## 快速开始（自用项目）
 
 ```bash
 cp .env.example .env
 pnpm install
-pnpm dev
+pnpm dev:cms     # Payload 后台，http://localhost:3000/admin
+pnpm dev         # Astro 前台，http://localhost:4321
+```
+
+导入本地 Markdown 页面与演示产品（需要后台已启动，并配置管理员账号）：
+
+```bash
+pnpm cms:import
 ```
 
 验证整个仓库：
@@ -33,9 +44,9 @@ supabase db reset
 ## 当前可演示闭环
 
 - `/studio/`：在构建时运行 Topic Graph、机会评分、人工批准与 Brief 生成。
-- `/custom/custom-ita-bag-design/`：经过审核的 customization 页面。
-- `/guides/how-to-design-an-ita-bag/`：经过审核的 guide 页面。
-- 每篇内容均由类型化 Content Collection 校验，并输出 canonical、结构化数据、面包屑和相关链接。
+- `/custom/custom-ita-bag-design/` 与 `/guides/how-to-design-an-ita-bag/`：由 Payload 发布的页面。
+- `/products/`：由 Payload 管理的产品目录与详情页（规格、图集、展示区块）。
+- 未设置 `PAYLOAD_URL` 时回退到 `apps/web/src/content` 的 Markdown。
 - 候选状态只能沿受控路径推进；数据库 migration 保存带理由的状态历史。
 
 当前 Studio 使用确定性的内存仓储作为本地演示。Supabase schema 是持久化边界，接入线上项目前仍需在本地执行 migration reset 和 RLS 集成测试。
@@ -44,15 +55,17 @@ supabase db reset
 
 | 路径 | 职责 |
 | --- | --- |
-| `apps/web` | Astro SEO 网站与后续轻量后台 |
+| `apps/web` | 自用项目的 Astro SEO 站点 |
+| `apps/cms` | 自用项目的 Payload 后台、迁移与内容模型 |
+| `client-kit/` | 客户交付套件：Directus、n8n 工作流与部署脚本 |
 | `packages/shared` | 通用类型、Schema、常量 |
 | `packages/seo-engine` | SEO 决策与机会评分 |
 | `packages/content-engine` | Brief、事实注入、内容验证 |
-| `supabase` | PostgreSQL migration 与种子数据 |
-| `directus` | 本地 Headless CMS、版本化 schema snapshot 与开发种子 |
-| `workflows/n8n` | n8n 集成说明和后续工作流 |
-| `docs` | 架构、数据库、路线图和本地开发上下文 |
+| `supabase` | PostgreSQL migration 与种子数据（共享基础模型） |
+| `scripts` | 数据库推送/校验、体检与 Payload 导入脚本 |
+| `docs` | 自用项目的架构、数据库、路线图与本地开发上下文 |
 
-请先阅读 [AGENTS.md](AGENTS.md) 与
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。全部文档入口见
+客户项目请从 [client-kit/README.md](client-kit/README.md) 进入，不要复用 `apps/web`。
+自用项目请先阅读 [AGENTS.md](AGENTS.md) 与
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)；全部文档入口见
 [docs/README.md](docs/README.md)。

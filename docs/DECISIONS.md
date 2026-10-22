@@ -65,10 +65,25 @@ Dedicated tables may be introduced later without changing their graph identity.
 
 ## ADR-009 — Directus is the reviewed publishing CMS
 
-**Status:** accepted
+**Status:** superseded for the self-use project by ADR-010; still applies to
+`client-kit/` (customer delivery).
 
 Directus owns editor-facing page bodies, navigation, and site presentation
 settings. Supabase continues to own operational SEO data and candidate state.
 Astro reads only tenant-scoped `published` records at build time, while local
 reviewed content remains the development fallback. Directus publication must
 trigger a static-site rebuild and may never bypass human review.
+
+## ADR-010 — Payload is the CMS for the self-use project
+
+**Status:** accepted
+
+The self-use site uses Payload 3 in `apps/cms` as its only publishing backend.
+Reasons: code-first schema with generated TypeScript types, draft/publish and
+localization built in, product galleries/specs/variants via blocks, and no
+separate admin to configure. Astro (`apps/web`) reads Payload at build time and
+falls back to Markdown when `PAYLOAD_URL` is unset.
+
+Directus remains part of `client-kit/` for customer delivery. The two projects
+share the Supabase decision layer and `packages/*`, but never share a content
+backend: `apps/web` must not regain a Directus adapter.

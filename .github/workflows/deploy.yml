@@ -39,6 +39,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'client-kit/**'
+      - 'docs/**'
+      - '**/*.md'
   workflow_dispatch:
   repository_dispatch:
     types: [cms-published]

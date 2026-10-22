@@ -2,7 +2,7 @@
 //
 // Usage:
 //   1. Create an admin static token in Data Studio (Settings -> Access Tokens).
-//   2. $env:DIRECTUS_ADMIN_TOKEN="the-token"; node directus/seed/seed.mjs
+//   2. $env:DIRECTUS_ADMIN_TOKEN="the-token"; node client-kit/directus/seed/seed.mjs
 //
 // Idempotent: re-running updates the same fixed-id items in place.
 

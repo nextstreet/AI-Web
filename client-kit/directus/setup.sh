@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Directus CMS 服务器一键部署脚本。
-# 在服务器上克隆本仓库后，于 directus/ 目录内运行：
+# 在服务器上克隆本仓库后，于 client-kit/directus/ 目录内运行：
 #
-#   cd /path/to/ai-seo-saas/directus
+#   cd /path/to/ai-seo-saas/client-kit/directus
 #   ./setup.sh http://<服务器公网IP或域名>:8055
 #
 # 参数（可选）：Directus 的对外访问地址，用于 PUBLIC_URL。
@@ -22,18 +22,18 @@ step "检查 Docker 环境"
 command -v docker >/dev/null 2>&1 || fail "未安装 Docker，请先安装：curl -fsSL https://get.docker.com | sh"
 docker compose version >/dev/null 2>&1 || fail "缺少 Docker Compose v2 插件"
 command -v curl >/dev/null 2>&1 || fail "未安装 curl，请先安装（apt install curl 或 yum install curl）"
-[ -f "$SNAPSHOT" ] || fail "找不到模型快照 $SNAPSHOT，请在仓库根目录的 directus/ 内运行"
+[ -f "$SNAPSHOT" ] || fail "找不到模型快照 $SNAPSHOT，请在 client-kit/directus/ 内运行"
 
-step "准备 directus/.env"
+step "准备 client-kit/directus/.env"
 if [ ! -f .env ]; then
   cp .env.example .env
   command -v openssl >/dev/null 2>&1 || fail "未安装 openssl，无法生成 KEY/SECRET"
   sed -i "s|KEY=replace-with-32-byte-hex-key|KEY=$(openssl rand -hex 32)|" .env
   sed -i "s|SECRET=replace-with-32-byte-hex-secret|SECRET=$(openssl rand -hex 32)|" .env
   sed -i "s|ADMIN_PASSWORD=change-me|ADMIN_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=')|" .env
-  echo "已生成 KEY / SECRET / 管理员密码（写入 directus/.env）。"
+  echo "已生成 KEY / SECRET / 管理员密码（写入 client-kit/directus/.env）。"
 else
-  echo "directus/.env 已存在，保持不变。"
+  echo "client-kit/directus/.env 已存在，保持不变。"
 fi
 
 if grep -q "KEY=replace-with\|SECRET=replace-with\|ADMIN_PASSWORD=change-me" .env; then
@@ -68,7 +68,7 @@ cat <<EOF
 
 后续步骤（一次性配置）：
   1. 浏览器打开 \${PUBLIC_URL}（或 http://<服务器IP>:8055），
-     用 $ADMIN_EMAIL 和 directus/.env 里的 ADMIN_PASSWORD 登录。
+     用 $ADMIN_EMAIL 和 client-kit/directus/.env 里的 ADMIN_PASSWORD 登录。
      如还没开放 8055 端口，请放行防火墙/安全组。
   2. 后台创建只读访问：Settings -> Roles/Policies 新建 "Static site reader"，
      对 cms_sites、cms_navigation、cms_pages、cms_blocks、
@@ -81,7 +81,7 @@ cat <<EOF
      然后运行 pnpm health 验证 CMS 可达。
   4. （可选）灌入示例内容，在本地电脑运行：
         \$env:DIRECTUS_ADMIN_TOKEN = "<管理员令牌>"
-        node directus/seed/seed.mjs
-  5. 自动重建站点：按仓库 .github/workflows/deploy.yml 头部注释
-     配置 Directus Flow webhook 与 GitHub Secrets。
+        node client-kit/directus/seed/seed.mjs
+  5. 自动重建站点：客户站点管线尚未恢复。恢复后请在 client-kit/ 内单独配置
+     部署 workflow，不要复用根目录的 Payload 部署流水线。
 EOF

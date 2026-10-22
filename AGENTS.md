@@ -29,12 +29,18 @@ For database work, also read `docs/DATABASE.md`. For task status, read
 
 ## Package boundaries
 
+Two independent projects share only the decision layer:
+
+- `apps/web`: self-use Astro presentation, page rendering, and thin wiring.
+- `apps/cms`: self-use Payload content model, migrations, and admin.
+- `client-kit`: customer delivery kit (Directus + n8n). Never wire its CMS back
+  into `apps/web`, and never reuse `apps/web` as the customer site.
 - `packages/seo-engine`: whether to create, expand, merge, or ignore.
 - `packages/content-engine`: how an approved page should be briefed/created.
 - `packages/shared`: types, schemas, constants, and generic utilities only.
-- `apps/web`: Astro presentation, page rendering, and thin application wiring.
-- `supabase`: durable schema, RLS, migrations, and seed data.
-- `workflows`: integration definitions; never the canonical business model.
+- `supabase`: durable schema, RLS, migrations, and seed data shared by both.
+- `client-kit/workflows`: integration definitions; never the canonical business
+  model.
 
 ## Definition of done
 

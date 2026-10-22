@@ -1,5 +1,5 @@
 {
-  "//": "产品数据来自 directus/seed/seed.mjs 里的演示种子（项目 B 的 Directus 后台），这里作为导入 Payload 的固定输入。页面正文以 apps/web/src/content/pages 下的 Markdown 为准，不在此文件重复。",
+  "//": "产品数据来自 client-kit/directus/seed/seed.mjs 里的演示种子（项目 B 的 Directus 后台），这里作为导入 Payload 的固定输入。页面正文以 apps/web/src/content/pages 下的 Markdown 为准，不在此文件重复。",
   "site": {
     "brandName": "Ita Bag Design Lab",
     "tagline": "Design-first display bags",

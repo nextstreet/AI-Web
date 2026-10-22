@@ -39,12 +39,15 @@ CLI can understand without rereading the original conversation.
 - [x] Canonical URL, metadata, JSON-LD, breadcrumbs, and related links.
 - [x] Static sitemap output.
 
-### 4. Directus publishing CMS
+### 4. Payload publishing CMS
 
-- [x] Tenant-scoped build-time source for published pages.
+- [x] Payload 3 backend with pages, products, categories, media, and site settings.
+- [x] Tenant-scoped build-time source for published pages and the product catalog.
 - [x] CMS-managed site name, footer, and header navigation.
 - [x] Repository content fallback for local and recovery builds.
-- [x] Explicit draft/review/published collection contract and deploy-hook flow.
+- [x] Draft/published workflow with publish-triggered static rebuilds.
+- [x] One-off importer for existing Markdown pages and legacy Directus products.
+- [ ] Directus + n8n customer kit is maintained separately under `client-kit/`.
 
 ## Next implementation tasks
 

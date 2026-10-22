@@ -46,11 +46,15 @@ else {
   if (env.SUPABASE_DB_URL) ok('SUPABASE_DB_URL 已配置');
   else bad('缺少 SUPABASE_DB_URL');
 
+  const payloadUrl = (env.PAYLOAD_URL ?? '').trim();
+  if (payloadUrl) ok(`PAYLOAD_URL 已配置：${payloadUrl}`);
+  else warn('PAYLOAD_URL 未配置（Astro 构建将使用本地 Markdown 兜底）');
+
   const directusKeys = ['DIRECTUS_URL', 'DIRECTUS_TOKEN', 'DIRECTUS_TENANT_ID'];
   const setKeys = directusKeys.filter((key) => (env[key] ?? '').trim() !== '');
-  if (setKeys.length === 0) warn('DIRECTUS_URL / TOKEN / TENANT_ID 未配置（构建走本地 Markdown 兜底，属正常）');
-  else if (setKeys.length === 3) ok('Directus 三项配置完整');
-  else bad(`Directus 配置不完整，已填 ${setKeys.join(', ')}，缺少其余项（部分配置会导致构建失败）`);
+  if (setKeys.length === 3) ok('Directus（客户项目）三项配置完整');
+  else if (setKeys.length === 0) warn('未配置 Directus（仅 client-kit 客户项目需要，自用项目可忽略）');
+  else bad(`Directus 配置不完整，已填 ${setKeys.join(', ')}，缺少其余项（客户项目构建会失败）`);
 }
 
 // 5. Supabase 数据库连通
@@ -71,8 +75,8 @@ if (!dbUrl) {
   }
 }
 
-// 6. Directus 可达（仅在配置了 URL 时检查）
-console.log('\n[Directus CMS]');
+// 6. Directus 可达（客户项目 client-kit，仅在配置了 URL 时检查）
+console.log('\n[Directus CMS · client-kit]');
 const directusUrl = (env.DIRECTUS_URL ?? '').replace(/\/$/, '');
 if (!directusUrl) {
   warn('未配置 DIRECTUS_URL，跳过检查');
@@ -83,6 +87,21 @@ if (!directusUrl) {
     else bad(`服务响应异常：HTTP ${response.status}`);
   } catch (error) {
     bad(`不可达：${directusUrl}（${error.message}）`);
+  }
+}
+
+// 7. Payload 可达（自用项目，仅在配置了 URL 时检查）
+console.log('\n[Payload CMS]');
+const payloadUrl = (env.PAYLOAD_URL ?? '').replace(/\/$/, '');
+if (!payloadUrl) {
+  warn('未配置 PAYLOAD_URL，跳过检查');
+} else {
+  try {
+    const response = await fetch(`${payloadUrl}/api/pages?limit=1`, { signal: AbortSignal.timeout(10000) });
+    if (response.ok) ok(`服务可达：${payloadUrl}`);
+    else bad(`服务响应异常：HTTP ${response.status}`);
+  } catch (error) {
+    bad(`不可达：${payloadUrl}（${error.message}）`);
   }
 }
 

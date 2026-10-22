@@ -8,8 +8,11 @@
 | `DECISIONS.md` | proposing a framework, CMS, database, or major architectural change |
 | `CURRENT-SPRINT.md` | selecting the next implementation task |
 | `ROADMAP.md` | checking phase order and deferrals |
-| `DIRECTUS.md` | configuring CMS collections, permissions, and publishing rebuilds |
 | `CODEX-LOCAL-WORKFLOW.md` | using Trae + Codex CLI and writing task prompts |
+
+客户交付项目（Directus + n8n）的文档位于
+[`client-kit/docs/directus.md`](../client-kit/docs/directus.md)，不要与自用项目的
+Payload 内容模型混用。
 
 `AGENTS.md` at repository root is the mandatory AI entry point. Documentation
 describes the current source of truth; code changes that invalidate it must

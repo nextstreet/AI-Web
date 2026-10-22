@@ -1,6 +1,6 @@
-# Self-hosted Directus publishing CMS for local development.
+# Self-hosted Directus publishing CMS for client sites (client-kit).
 # Usage:
-#   cd directus
+#   cd client-kit/directus
 #   cp .env.example .env   # then set KEY/ADMIN_* values
 #   docker compose up -d
 #   docker compose exec directus directus schema apply ./snapshots/2026-10-02-cms.yaml

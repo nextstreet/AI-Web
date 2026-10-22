@@ -9,7 +9,7 @@ flowchart TD
   SEO --> Candidate[Content candidate]
   Candidate --> Content[Content engine]
   Content --> Review[Human review]
-  Review --> CMS[Directus publishing CMS]
+  Review --> CMS[Payload CMS]
   CMS --> Web[Astro pages]
   Web --> Signals[GSC, social, and votes]
   Signals --> SEO
@@ -24,8 +24,8 @@ flowchart TD
 | Content engine | Briefs, prompt assembly, fact injection, draft validation | opportunity prioritization |
 | Shared | generic contracts, enums, validation, utilities | industry-specific workflows |
 | Supabase | durable state, tenant isolation, relations, metrics | prompt orchestration |
-| Directus | reviewed page bodies, site settings, and navigation | SEO opportunity decisions, automatic publication |
-| n8n | schedules and external API orchestration | canonical business rules |
+| Payload (`apps/cms`) | reviewed page bodies, products, site settings, and navigation | SEO opportunity decisions, automatic publication |
+| n8n (`client-kit`) | schedules and external API orchestration for client delivery | canonical business rules |
 
 ## Data flow rules
 
@@ -33,20 +33,20 @@ flowchart TD
 2. Research creates candidates, not pages.
 3. SEO engine produces a decision plus an explainable reason.
 4. Only approved candidates enter content creation.
-5. Review promotes an editorial draft to a published Directus content record.
-6. Astro renders only published Directus records or reviewed repository content.
+5. Review promotes an editorial draft to a published Payload content record.
+6. Astro renders only published Payload records or reviewed repository content.
 7. Performance data updates decisions; it never silently rewrites content.
 
 ## V1 deployment shape
 
 ```text
 Astro static output -> web hosting/CDN
-Directus             -> reviewed editorial content and site chrome
+Payload             -> reviewed editorial content and site chrome (self-use)
 Supabase            -> Postgres + RLS + later Auth/Realtime
-n8n                 -> existing Seoul VPS or another controlled runtime
+n8n + Directus      -> client delivery kit under client-kit/
 ```
 
-The web app should remain deployable without n8n. Directus is read at build
+The web app should remain deployable without n8n. Payload is read at build
 time, so a failed workflow or later CMS outage must not break deployed pages.
 
 ## Package dependency direction

@@ -1,39 +1,46 @@
 # Directus publishing CMS
 
-Directus is the editorial publishing backend. Supabase remains the durable source
-for tenant membership, topic graphs, candidates, briefs, and performance data.
-Moving a candidate to `published` in Supabase does not create a public page, and
-Directus only exposes records that an editor has explicitly moved to `published`.
+> 本文件属于客户交付项目（`client-kit/`）。根目录 `apps/web` 现在读取 Payload，
+> 不再读取 Directus；恢复客户站点时，请在本目录内单独实现读取层，
+> 不要改动自用项目的 `apps/web`。
 
-Astro reads Directus at build time. Publishing therefore requires a site rebuild:
-configure a Directus Flow that sends a `POST` request to the hosting provider's
-deploy hook when a record in one of the collections below changes to
-`published`. A CMS outage cannot affect an already deployed static site.
+Directus is the editorial publishing backend for client sites. Supabase remains
+the durable source for tenant membership, topic graphs, candidates, briefs, and
+performance data. Moving a candidate to `published` in Supabase does not create a
+public page, and Directus only exposes records that an editor has explicitly
+moved to `published`.
+
+The client site reads Directus at build time. Publishing therefore requires a
+site rebuild: configure a Directus Flow that sends a `POST` request to the
+hosting provider's deploy hook when a record in one of the collections below
+changes to `published`. A CMS outage cannot affect an already deployed static
+site.
 
 ## Local self-hosted instance
 
-The repository ships a Docker-based instance under `directus/` (requires Docker):
+This kit ships a Docker-based instance under `client-kit/directus/` (requires
+Docker):
 
 ```bash
-cd directus
+cd client-kit/directus
 cp .env.example .env   # generate KEY/SECRET and set ADMIN_* values
 docker compose up -d
 docker compose exec directus directus schema apply ./snapshots/2026-10-02-cms.yaml
 ```
 
-The snapshot is the canonical, version-controlled data model: four collections,
+The snapshot is the canonical, version-controlled data model: six collections,
 their fields, and the page-to-blocks relation. After applying it, create the
 read policy described below, then optionally load deterministic development
 content:
 
 ```powershell
 $env:DIRECTUS_ADMIN_TOKEN = "an admin static token"
-node directus/seed/seed.mjs
+node client-kit/directus/seed/seed.mjs
 ```
 
 ## Required collections
 
-All four collections are regular collections rather than global singletons so
+All six collections are regular collections rather than global singletons so
 that every record retains `tenant_id`. Use UUID primary keys and require the
 fields marked **required**.
 
@@ -162,10 +169,11 @@ performance metrics. Those remain tenant-scoped operational data in Supabase.
 ## Read access and environment
 
 After applying the snapshot, create a **Static site reader** policy with
-read-only item permissions on all four collections (`cms_sites`,
-`cms_navigation`, `cms_pages`, `cms_blocks`), then issue a static token for a
-user bound to that policy. It must never be exposed as a `PUBLIC_*` variable.
-The build also applies `tenant_id` and `status=published` filters itself.
+read-only item permissions on all six collections (`cms_sites`,
+`cms_navigation`, `cms_pages`, `cms_blocks`, `cms_product_categories`,
+`cms_products`), then issue a static token for a user bound to that policy. It
+must never be exposed as a `PUBLIC_*` variable. The build also applies
+`tenant_id` and `status=published` filters itself.
 
 ```dotenv
 DIRECTUS_URL="http://localhost:8055"
