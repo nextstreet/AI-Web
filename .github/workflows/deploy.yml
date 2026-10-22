@@ -1,44 +1,36 @@
-# 自动部署流水线：构建静态站点并同步到服务器。
-# 触发：推送到 main、手动触发（workflow_dispatch）、
-#       或 Directus 内容发布 webhook（repository_dispatch: cms-published）。
+# 自动部署流水线：从 Payload 读取已发布内容，构建静态站点并同步到服务器。
+# 触发：推送到 main、手动触发、Payload 发布后的 repository_dispatch（cms-published）。
 #
-# ══════════════ 首次启用配置（一次性，约 10 分钟）══════════════
+# ══════════════ 首次启用配置（一次性）══════════════
 #
 # 1. 生成部署密钥（在本地电脑运行）：
 #      ssh-keygen -t ed25519 -f deploy_key -N ""
 #    把 deploy_key.pub 内容追加到服务器 ~/.ssh/authorized_keys，
 #    deploy_key 私钥全文（包括 BEGIN/END 行）作为 DEPLOY_SSH_KEY。
 #
-# 2. GitHub 仓库 -> Settings -> Secrets and variables -> Actions，添加：
+# 2. GitHub 仓库 -> Settings -> Secrets and variables -> Actions，添加 Secrets：
 #      DEPLOY_HOST      服务器 IP 或域名，如 1.2.3.4
 #      DEPLOY_USER      SSH 用户名，如 root
 #      DEPLOY_PATH      站点目录，如 /var/www/ai-seo-site（需已存在）
 #      DEPLOY_SSH_KEY   上一步的私钥全文
 #      DEPLOY_PORT      可选，默认 22
 #      PUBLIC_SITE_URL  正式域名（含 https://），影响 sitemap 和 canonical
-#      （启用 CMS 内容后再加三项：DIRECTUS_URL / DIRECTUS_TOKEN / DIRECTUS_TENANT_ID，
-#        三项要么全填要么全空，只填一部分会导致构建失败）
+#      PAYLOAD_URL      Payload 的公网地址（含 https://），必须能被 GitHub Runner 访问
+#      PAYLOAD_LOCALE   可选，默认 en
 #
-# 3. 服务器 nginx 静态站点配置（root 指向 DEPLOY_PATH）：
-#      server {
-#        listen 80;
-#        server_name your-domain.com;
-#        root /var/www/ai-seo-site;
-#        index index.html;
-#        location / { try_files $uri $uri/ =404; }
-#      }
+#    没有 PAYLOAD_URL 时构建会退回本地 Markdown，CMS 内容不会上线。
+#    仅当确实想发布 Markdown 兜底站点时，设置仓库 Variable：
+#      ALLOW_MARKDOWN_FALLBACK = true
 #
-# 4. Directus 发布后自动重建（Directus 后台 -> Flows -> 新建 Flow）：
-#      Trigger: Event Hook，Scope 选 items.update，
-#               Collections 选 cms_sites、cms_navigation、cms_pages、cms_blocks、
-#               cms_product_categories、cms_products
-#      （可选加一个 Filter：payload.status 等于 published，只有发布动作才触发）
-#      Operation: Webhook / Request URL：
-#        Method: POST
-#        URL:    https://api.github.com/repos/<你的用户名>/<仓库名>/dispatches
-#        Headers: Authorization: Bearer <GitHub Personal Access Token，勾选 repo 权限>
-#                 Accept: application/vnd.github+json
-#        Body: {"event_type":"cms-published","client_payload":{"source":"directus"}}
+# 3. 服务器 nginx：
+#    - 静态站点：root 指向 DEPLOY_PATH
+#    - CMS 路径分流（/admin /api /media -> 127.0.0.1:3000），并把
+#      https://<域名>/api 暴露为 PAYLOAD_URL 的值
+#
+# 4. Payload 发布后自动重建（在服务器 apps/cms/.env 中配置）：
+#      DEPLOY_HOOK_URL=https://api.github.com/repos/<owner>/<repo>/dispatches
+#      DEPLOY_HOOK_TOKEN=<GitHub PAT，勾选 repo 权限>
+#    发布/撤回页面、产品、分类或保存站点设置时，Payload 会自动触发本流水线。
 #
 # 密钥没配齐时部署步骤会自动跳过（黄字警告），构建照常执行。
 
@@ -71,13 +63,27 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 检查内容源配置
+        env:
+          PAYLOAD_URL: ${{ secrets.PAYLOAD_URL }}
+          ALLOW_MARKDOWN_FALLBACK: ${{ vars.ALLOW_MARKDOWN_FALLBACK }}
+        run: |
+          if [ -z "$PAYLOAD_URL" ] && [ "$ALLOW_MARKDOWN_FALLBACK" != "true" ]; then
+            echo "::error::缺少 PAYLOAD_URL secret，构建将退回本地 Markdown，CMS 内容无法上线。配置 Payload 公网地址后重试；如确实要发布 Markdown 兜底站点，请设置仓库变量 ALLOW_MARKDOWN_FALLBACK=true。"
+            exit 1
+          fi
+          if [ -z "$PAYLOAD_URL" ]; then
+            echo "::warning::PAYLOAD_URL 未配置，本次按本地 Markdown 兜底构建。"
+          else
+            echo "内容源：Payload ($PAYLOAD_URL)"
+          fi
+
       - name: 构建站点
         env:
           PUBLIC_SITE_URL: ${{ secrets.PUBLIC_SITE_URL }}
-          DIRECTUS_URL: ${{ secrets.DIRECTUS_URL }}
-          DIRECTUS_TOKEN: ${{ secrets.DIRECTUS_TOKEN }}
-          DIRECTUS_TENANT_ID: ${{ secrets.DIRECTUS_TENANT_ID }}
-        run: pnpm build
+          PAYLOAD_URL: ${{ secrets.PAYLOAD_URL }}
+          PAYLOAD_LOCALE: ${{ secrets.PAYLOAD_LOCALE }}
+        run: pnpm --filter @ai-seo/web build
 
       - name: 检查部署密钥
         env:

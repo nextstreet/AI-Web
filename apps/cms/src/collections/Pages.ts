@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrAuthenticated } from '../access'
 import { aiField, faqItemFields, seoField } from '../fields/shared'
+import { notifyDeployAfterChange } from '../hooks/notifyDeploy'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -13,6 +14,7 @@ export const Pages: CollectionConfig = {
   },
   versions: { drafts: true },
   access: { read: publishedOrAuthenticated },
+  hooks: { afterChange: [notifyDeployAfterChange] },
   fields: [
     {
       type: 'tabs',

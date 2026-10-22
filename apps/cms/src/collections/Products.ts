@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { publishedOrAuthenticated } from '../access'
 import { aiField, faqItemsField, seoField } from '../fields/shared'
+import { notifyDeployAfterChange } from '../hooks/notifyDeploy'
 
 /**
  * 产品内容模型。
@@ -18,6 +19,7 @@ export const Products: CollectionConfig = {
   },
   versions: { drafts: true },
   access: { read: publishedOrAuthenticated },
+  hooks: { afterChange: [notifyDeployAfterChange] },
   fields: [
     {
       type: 'tabs',

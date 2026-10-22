@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { seoField } from '../fields/shared'
+import { notifyDeployAfterChange } from '../hooks/notifyDeploy'
 
 export const Categories: CollectionConfig = {
   slug: 'categories',
@@ -12,6 +13,7 @@ export const Categories: CollectionConfig = {
   access: {
     read: () => true,
   },
+  hooks: { afterChange: [notifyDeployAfterChange] },
   fields: [
     { name: 'name', type: 'text', label: '名称', required: true, localized: true },
     {

@@ -1,4 +1,5 @@
 import type { GlobalConfig } from 'payload'
+import { notifyDeployGlobalAfterChange } from '../hooks/notifyDeploy'
 
 /** 站点级配置：品牌、导航、主题与默认 SEO */
 export const SiteSettings: GlobalConfig = {
@@ -11,6 +12,7 @@ export const SiteSettings: GlobalConfig = {
   access: {
     read: () => true,
   },
+  hooks: { afterChange: [notifyDeployGlobalAfterChange] },
   fields: [
     {
       type: 'tabs',
