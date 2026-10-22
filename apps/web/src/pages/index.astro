@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import BlockRenderer from '../components/cms/BlockRenderer.astro';
-import { getPublishedCmsPage } from '../lib/cms/directus';
+import { getPublishedCmsPage } from '../lib/cms/payload';
 
 const cmsPage = await getPublishedCmsPage('/');
 

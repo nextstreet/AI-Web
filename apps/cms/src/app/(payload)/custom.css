@@ -1,0 +1,8 @@
+/* 后台品牌色覆盖：与独立站主题保持一致 */
+:root {
+  --theme-elevation-0: #ffffff;
+}
+
+.payload-admin .nav {
+  --nav-width: 260px;
+}

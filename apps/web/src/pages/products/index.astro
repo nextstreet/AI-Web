@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getCmsProductCategories, getCmsProducts, isCmsEnabled, type CmsProduct } from '../../lib/cms/directus';
+import { getCmsProductCategories, getCmsProducts, isCmsEnabled, type CmsProduct } from '../../lib/cms/payload';
 
 const products = await getCmsProducts();
 const categories = await getCmsProductCategories();

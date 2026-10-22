@@ -2,7 +2,7 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import BlockRenderer from '../../components/cms/BlockRenderer.astro';
-import { getPublishedCmsPage, getPublishedCmsPages, isCmsEnabled } from '../../lib/cms/directus';
+import { getPublishedCmsPage, getPublishedCmsPages, isCmsEnabled } from '../../lib/cms/payload';
 
 const cmsPages = (await getPublishedCmsPages()).filter((page) => page.pageType === 'guide' && page.path !== '/guides/');
 const cmsPaths = new Set(cmsPages.map((page) => page.path));

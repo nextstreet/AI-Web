@@ -9,7 +9,7 @@ import {
   getCmsProductCategories,
   isCmsEnabled,
   type CmsProduct,
-} from '../../lib/cms/directus';
+} from '../../lib/cms/payload';
 
 const cmsPages = (await getPublishedCmsPages()).filter((page) => page.pageType === 'customization' && page.path !== '/custom/');
 const cmsPaths = new Set(cmsPages.map((page) => page.path));

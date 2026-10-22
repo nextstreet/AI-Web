@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getCmsProductCategories, getCmsProducts, isCmsEnabled, type CmsProduct } from '../../lib/cms/directus';
+import ProductPresentation from '../../components/cms/ProductPresentation.astro';
+import { getCmsProductCategories, getCmsProducts, isCmsEnabled, type CmsProduct } from '../../lib/cms/payload';
 
 export async function getStaticPaths() {
   const products = await getCmsProducts();
@@ -51,6 +52,14 @@ const schema = {
 
   {imageUrl && <img class="product-image" src={imageUrl} alt={product.name} loading="eager" />}
 
+  {product.gallery.length > 0 && (
+    <section aria-label="Product gallery">
+      <div class="gallery">
+        {product.gallery.map((url) => <img src={url} alt={product.name} loading="lazy" />)}
+      </div>
+    </section>
+  )}
+
   <div class="grid">
     {product.features.length > 0 && (
       <section class="card">
@@ -68,6 +77,17 @@ const schema = {
         </dl>
       </section>
     )}
+    {product.variants.length > 0 && (
+      <section class="card">
+        <h2>Options</h2>
+        {product.variants.map((variant) => (
+          <div>
+            <h3>{variant.name}</h3>
+            <ul>{variant.options.map((option) => <li>{option}</li>)}</ul>
+          </div>
+        ))}
+      </section>
+    )}
     {product.leadTime && (
       <section class="card">
         <h2>Production timing</h2>
@@ -76,10 +96,14 @@ const schema = {
       </section>
     )}
   </div>
+
+  <ProductPresentation blocks={product.presentation} />
 </BaseLayout>
 
 <style>
   .product-image { display: block; max-width: min(100%, 720px); max-height: 520px; object-fit: contain; margin-block: 2rem; border-radius: 1rem; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-block: 2rem; }
+  .gallery img { width: 100%; border-radius: 1rem; object-fit: cover; }
   dt { font-weight: 700; margin-top: .75rem; }
   dd { margin-inline-start: 0; color: #554b59; }
 </style>

@@ -6,15 +6,15 @@ import {
   getPublishedCmsPages,
   isCmsEnabled,
   type CmsPage,
-} from '../lib/cms/directus';
+} from '../lib/cms/payload';
 
 type PageSource =
   | { source: 'local'; page: CollectionEntry<'pages'> }
-  | { source: 'directus'; page: CmsPage };
+  | { source: 'payload'; page: CmsPage };
 
 export async function getStaticPaths() {
   const reservedPaths = new Set(['/', '/custom/', '/guides/', '/studio/']);
-  // When the CMS is enabled all reviewed content lives in Directus; local
+  // When the CMS is enabled all reviewed content lives in Payload; local
   // Markdown acts only as a fallback when the CMS is unavailable.
   const localPages = isCmsEnabled()
     ? []
@@ -30,7 +30,7 @@ export async function getStaticPaths() {
   const paths = new Map<string, PageSource>();
   for (const page of localPages) paths.set(page.data.canonicalPath, { source: 'local', page });
   for (const page of await getPublishedCmsPages()) {
-    if (!reservedPaths.has(page.path)) paths.set(page.path, { source: 'directus', page });
+    if (!reservedPaths.has(page.path)) paths.set(page.path, { source: 'payload', page });
   }
 
   return [...paths.entries()].map(([path, entry]) => ({
@@ -45,7 +45,7 @@ interface Props {
 
 const { entry } = Astro.props;
 const localPage = entry.source === 'local' ? entry.page : undefined;
-const cmsPage = entry.source === 'directus' ? entry.page : undefined;
+const cmsPage = entry.source === 'payload' ? entry.page : undefined;
 const LocalContent = localPage ? (await render(localPage)).Content : undefined;
 const allLocalPages = isCmsEnabled() ? [] : await getCollection('pages', ({ data }) => data.reviewed);
 const allCmsPages = await getPublishedCmsPages();
@@ -182,9 +182,8 @@ const schema = cmsPage?.jsonLdOverride ?? {
   )}
 
   {LocalContent && <article class="prose"><LocalContent /></article>}
-  {cmsPage && (cmsPage.blocks.length > 0
-    ? <BlockRenderer blocks={cmsPage.blocks} />
-    : <article class="prose cms-body" set:html={cmsPage.bodyHtml} />)}
+  {cmsPage?.bodyHtml && <article class="prose cms-body" set:html={cmsPage.bodyHtml} />}
+  {cmsPage && cmsPage.blocks.length > 0 && <BlockRenderer blocks={cmsPage.blocks} />}
 
   {cmsPage && cmsPage.internalLinks.length > 0 && (
     <aside aria-labelledby="internal-heading">

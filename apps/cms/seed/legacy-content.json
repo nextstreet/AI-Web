@@ -1,0 +1,92 @@
+{
+  "//": "产品数据来自 directus/seed/seed.mjs 里的演示种子（项目 B 的 Directus 后台），这里作为导入 Payload 的固定输入。页面正文以 apps/web/src/content/pages 下的 Markdown 为准，不在此文件重复。",
+  "site": {
+    "brandName": "Ita Bag Design Lab",
+    "tagline": "Design-first display bags",
+    "footerText": "V1 — CMS-controlled content, human review required before publication.",
+    "nav": [
+      { "label": "Custom", "href": "/custom/" },
+      { "label": "Products", "href": "/products/" },
+      { "label": "Guides", "href": "/guides/" },
+      { "label": "Studio", "href": "/studio/" }
+    ]
+  },
+  "categories": [
+    {
+      "slug": "bags",
+      "name": "Ita Bags",
+      "description": "Backpack, tote, and crossbody display bags designed around your collection.",
+      "sort": 1
+    },
+    {
+      "slug": "inserts",
+      "name": "Inserts & Display",
+      "description": "Removable inserts, window panels, and protective accessories for display arrangements.",
+      "sort": 2
+    }
+  ],
+  "products": [
+    {
+      "slug": "custom-ita-bag-backpack",
+      "name": "Custom Ita Bag Backpack",
+      "description": "A backpack-format display bag with a clear front window and removable insert, configured around your collection.",
+      "categorySlug": "bags",
+      "priceFrom": "18.50",
+      "currency": "USD",
+      "leadTime": "25-35 days after sample approval",
+      "highlights": [
+        { "title": "Window area", "text": "Up to 28 x 38 cm clear display zone on the front panel." },
+        { "title": "Insert system", "text": "Removable padded insert keeps pin backs away from the lining." },
+        { "title": "Carrying", "text": "Padded shoulder straps and a top handle for daily use." }
+      ],
+      "specs": [
+        { "label": "Material", "value": "Nylon outer, polyester lining, PVC window" },
+        { "label": "Capacity", "value": "Fits pins, cards, and small plush accessories" },
+        { "label": "Closure", "value": "Two-way zipper with custom pull tab" }
+      ],
+      "ai": {
+        "prompt": "Write a concise product description for a custom Ita Bag backpack aimed at small-batch buyers, highlighting the display window and removable insert.",
+        "model": "gpt-4o",
+        "generatedAt": "2026-09-08T00:00:00.000Z"
+      }
+    },
+    {
+      "slug": "removable-insert-system",
+      "name": "Removable Display Insert",
+      "description": "A foam-backed insert that secures pins and can be swapped between bags to change arrangements quickly.",
+      "categorySlug": "inserts",
+      "priceFrom": "4.20",
+      "currency": "USD",
+      "leadTime": "15-20 days",
+      "highlights": [
+        { "title": "Protection", "text": "Soft foam layer prevents pin backs from scratching the bag lining." },
+        { "title": "Swapability", "text": "Lightweight enough to move between bags in seconds." },
+        { "title": "Custom shapes", "text": "Cut to match any window geometry." }
+      ],
+      "specs": [
+        { "label": "Thickness", "value": "6 mm foam with fabric face" },
+        { "label": "Attachment", "value": "Hook-and-loop strips along the insert edge" },
+        { "label": "Finish", "value": "Available in black, white, and custom colors" }
+      ]
+    },
+    {
+      "slug": "clear-window-panel-set",
+      "name": "Clear Window Panel Set",
+      "description": "Replacement clear panels for custom display configurations, including standard and shaped windows.",
+      "categorySlug": "inserts",
+      "priceFrom": "2.80",
+      "currency": "USD",
+      "leadTime": "10-15 days",
+      "highlights": [
+        { "title": "Clarity", "text": "Glossy PVC panel with high optical transparency." },
+        { "title": "Shapes", "text": "Rectangular, heart, star, and custom outline options." },
+        { "title": "Reinforced edge", "text": "Welded seam prevents panel separation under load." }
+      ],
+      "specs": [
+        { "label": "Thickness", "value": "0.5 mm food-grade PVC" },
+        { "label": "Sizing", "value": "Custom dimensions to the nearest mm" },
+        { "label": "Compatibility", "value": "Fits all standard ita bag formats" }
+      ]
+    }
+  ]
+}
