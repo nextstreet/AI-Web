@@ -63,7 +63,7 @@ export async function getCandidates(): Promise<CandidateContent[]> {
 
 export async function getGalleryItems(): Promise<GalleryItem[]> {
   const response = await payloadFetch<{ docs?: PayloadDesign[] }>(
-    '/designs?limit=100&depth=0&where[_status][equals]=published',
+    '/designs?limit=100&depth=0&where[status][equals]=published',
   );
   const items = (response?.docs || []).map(mapDesign).filter((item): item is GalleryItem => Boolean(item));
   return items.length ? items : galleryItems;
