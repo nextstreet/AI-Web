@@ -12,5 +12,4 @@ is a deterministic build-time developer view; it is not an administrative
 publishing endpoint.
 
 The Payload content model lives in `../cms`. The Directus-based client delivery
-kit is a separate project under `../../client-kit` and must not be wired back
-into this package.
+kit is a separate repository and must not be wired back into this package.

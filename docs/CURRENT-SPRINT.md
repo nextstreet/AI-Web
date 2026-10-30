@@ -47,7 +47,7 @@ CLI can understand without rereading the original conversation.
 - [x] Repository content fallback for local and recovery builds.
 - [x] Draft/published workflow with publish-triggered static rebuilds.
 - [x] One-off importer for existing Markdown pages and legacy Directus products.
-- [ ] Directus + n8n customer kit is maintained separately under `client-kit/`.
+- [x] Directus + n8n customer kit split into a separate repository.
 
 ## Next implementation tasks
 

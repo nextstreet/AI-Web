@@ -1,11 +1,7 @@
 # AI SEO SaaS V1
 
-仓库内含两个互相独立的项目，只共享 SEO 决策引擎与 Supabase 基础模型：
-
-| 项目 | 代码位置 | 内容后台 | 状态 |
-| --- | --- | --- | --- |
-| 自用独立站 | `apps/web` + `apps/cms` | Payload 3 | 主开发线 |
-| 客户交付套件 | `client-kit/` | Directus 操作台 + n8n | 维护中，客户站点为 WordPress |
+本仓库只包含自用独立站（Astro + Payload）与它依赖的 SEO 决策引擎、Supabase 基础模型。
+客户交付套件（Directus 操作台 + n8n）已拆到独立仓库，本仓库不引用它的代码或数据。
 
 V1 的目标不是“生成最多文章”，而是尽快跑通：
 
@@ -57,7 +53,6 @@ supabase db reset
 | --- | --- |
 | `apps/web` | 自用项目的 Astro SEO 站点 |
 | `apps/cms` | 自用项目的 Payload 后台、迁移与内容模型 |
-| `client-kit/` | 客户交付套件：Directus 操作台、n8n 工作流与 WordPress 写入约定 |
 | `packages/shared` | 通用类型、Schema、常量 |
 | `packages/seo-engine` | SEO 决策与机会评分 |
 | `packages/content-engine` | Brief、事实注入、内容验证 |
@@ -65,7 +60,6 @@ supabase db reset
 | `scripts` | 数据库推送/校验、体检与 Payload 导入脚本 |
 | `docs` | 自用项目的架构、数据库、路线图与本地开发上下文 |
 
-客户项目请从 [client-kit/README.md](client-kit/README.md) 进入，不要复用 `apps/web`。
 自用项目请先阅读 [AGENTS.md](AGENTS.md) 与
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)；全部文档入口见
 [docs/README.md](docs/README.md)。

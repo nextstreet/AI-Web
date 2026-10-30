@@ -1,17 +1,14 @@
-# CI 质量门禁：自用项目（apps/ 与 packages/）变更时运行 pnpm check。
-# client-kit/ 客户交付套件目前没有构建步骤，其变更不会触发本工作流。
+# CI 质量门禁：任一代码或配置变更时运行 pnpm check。
 name: CI
 
 on:
   push:
     branches: [main]
     paths-ignore:
-      - 'client-kit/**'
       - 'docs/**'
       - '**/*.md'
   pull_request:
     paths-ignore:
-      - 'client-kit/**'
       - 'docs/**'
       - '**/*.md'
 

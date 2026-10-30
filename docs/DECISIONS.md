@@ -84,9 +84,9 @@ localization built in, product galleries/specs/variants via blocks, and no
 separate admin to configure. Astro (`apps/web`) reads Payload at build time and
 falls back to Markdown when `PAYLOAD_URL` is unset.
 
-Directus remains part of `client-kit/` for customer delivery. The two projects
-share the Supabase decision layer and `packages/*`, but never share a content
-backend: `apps/web` must not regain a Directus adapter.
+Directus belongs to the separate customer-delivery repository. The two projects
+may share the Supabase decision layer and `packages/*` as a reference, but never
+share a content backend: `apps/web` must not regain a Directus adapter.
 
 ## ADR-011 — WordPress owns customer content; Directus is an operator console
 
@@ -101,3 +101,6 @@ source of truth for decisions and metrics; n8n performs WordPress REST writes,
 starting with drafts and publishing only under the tenant's publish policy.
 Page templates, menus, and theme changes stay in WordPress. Directus must not
 regrow a page/block/static-site model or store WordPress credentials.
+
+This project now lives in its own repository; see the client-kit repository for
+its schema, n8n workflows, and deployment notes.
