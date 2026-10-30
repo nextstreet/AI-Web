@@ -60,6 +60,17 @@ export const SiteSettings: GlobalConfig = {
           ],
         },
         {
+          label: '旧站完整配置',
+          fields: [
+            {
+              name: 'legacyConfig',
+              type: 'json',
+              label: 'ITA ATELIER 配置',
+              admin: { description: '旧站 site_settings.config 的完整 JSON，前台按此渲染首页、导航、主题与 catalog' },
+            },
+          ],
+        },
+        {
           label: 'SEO 默认值',
           fields: [
             {

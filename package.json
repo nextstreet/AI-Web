@@ -19,7 +19,8 @@
     "dev:cms": "pnpm --filter @ai-seo/cms dev",
     "cms:types": "pnpm --filter @ai-seo/cms generate:types",
     "cms:importmap": "pnpm --filter @ai-seo/cms generate:importmap",
-    "cms:import": "node scripts/import-payload.mjs"
+    "cms:import": "node scripts/import-legacy.mjs",
+    "cms:import:demo": "node scripts/import-payload.mjs"
   },
   "devDependencies": {
     "pg": "^8.23.1",

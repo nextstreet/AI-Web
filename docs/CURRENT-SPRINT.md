@@ -39,7 +39,15 @@ CLI can understand without rereading the original conversation.
 - [x] Canonical URL, metadata, JSON-LD, breadcrumbs, and related links.
 - [x] Static sitemap output.
 
-### 4. Payload publishing CMS
+### 4. Legacy ITA ATELIER storefront + Payload
+
+- [x] Restored the full old storefront (home, gallery, collection, customize, designs, guides, content).
+- [x] Removed the old Supabase/Directus runtime content paths from `apps/web`.
+- [x] Imported 52 legacy content pages and 3 design concepts into Payload.
+- [x] Added Payload `Designs` and legacy page/config fields.
+- [x] Replaced the minimal V1 `/studio` and `/products` pages with the old storefront routes.
+
+### 5. Payload publishing CMS
 
 - [x] Payload 3 backend with pages, products, categories, media, and site settings.
 - [x] Tenant-scoped build-time source for published pages and the product catalog.

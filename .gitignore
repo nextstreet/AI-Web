@@ -13,3 +13,8 @@ coverage/
 .supabase/
 supabase/.branches/
 supabase/.temp/
+.next/
+payload.db
+payload.db-*
+media/
+*.tsbuildinfo

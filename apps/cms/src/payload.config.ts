@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
 import { Categories } from './collections/Categories'
+import { Designs } from './collections/Designs'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Products } from './collections/Products'
@@ -25,7 +26,7 @@ export default buildConfig({
       titleSuffix: ' · AI SEO CMS',
     },
   },
-  collections: [Users, Media, Categories, Products, Pages],
+  collections: [Users, Media, Categories, Designs, Products, Pages],
   globals: [SiteSettings],
   editor: lexicalEditor(),
   // 生产环境必须通过环境变量覆盖

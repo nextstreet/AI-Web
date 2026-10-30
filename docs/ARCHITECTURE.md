@@ -24,7 +24,7 @@ flowchart TD
 | Content engine | Briefs, prompt assembly, fact injection, draft validation | opportunity prioritization |
 | Shared | generic contracts, enums, validation, utilities | industry-specific workflows |
 | Supabase | durable state, tenant isolation, relations, metrics | prompt orchestration |
-| Payload (`apps/cms`) | reviewed page bodies, products, site settings, and navigation | SEO opportunity decisions, automatic publication |
+| Payload (`apps/cms`) | legacy content pages, design concepts, products, site settings, and navigation | SEO opportunity decisions, automatic publication |
 
 ## Data flow rules
 
@@ -33,13 +33,13 @@ flowchart TD
 3. SEO engine produces a decision plus an explainable reason.
 4. Only approved candidates enter content creation.
 5. Review promotes an editorial draft to a published Payload content record.
-6. Astro renders only published Payload records or reviewed repository content.
+6. Astro renders only published Payload records, designs, and reviewed repository content.
 7. Performance data updates decisions; it never silently rewrites content.
 
 ## V1 deployment shape
 
 ```text
-Astro static output -> web hosting/CDN
+Astro SSR (Node)     -> web hosting
 Payload             -> reviewed editorial content and site chrome
 Supabase            -> Postgres + RLS + later Auth/Realtime
 ```
@@ -47,8 +47,8 @@ Supabase            -> Postgres + RLS + later Auth/Realtime
 The customer delivery kit (n8n + Directus + WordPress) is a separate repository
 and is not part of this deployment.
 
-The web app should remain deployable without n8n. Payload is read at build
-time, so a failed workflow or later CMS outage must not break deployed pages.
+The web app should remain deployable without n8n. Payload is read at request
+time; if Payload is unavailable the Astro data layer falls back to repository seed data.
 
 ## Package dependency direction
 

@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     categories: Category;
+    designs: Design;
     products: Product;
     pages: Page;
     'payload-kv': PayloadKv;
@@ -82,6 +83,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    designs: DesignsSelect<false> | DesignsSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -252,6 +254,52 @@ export interface Category {
       | null;
     noindex?: boolean | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * 首页概念、画廊投票与设计详情页的数据来源
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "designs".
+ */
+export interface Design {
+  id: number;
+  name: string;
+  slug: string;
+  status?: ('draft' | 'published' | 'archived') | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  type?: ('Backpack' | 'Crossbody' | 'Tote') | null;
+  color?: string | null;
+  swatch?: string | null;
+  display?: ('Pins' | 'Photocards') | null;
+  mood?: ('Playful' | 'Soft' | 'Minimal') | null;
+  occasion?: ('Conventions' | 'Everyday') | null;
+  window?: ('Heart' | 'Rectangle') | null;
+  collectionSize?: ('Small' | 'Medium' | 'Large') | null;
+  note?: string | null;
+  highlights?:
+    | {
+        title?: string | null;
+        text?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  planningPoints?:
+    | {
+        point?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  tags?:
+    | {
+        tag?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  votesCount?: number | null;
+  sort?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -478,6 +526,8 @@ export interface Page {
       )
     | null;
   excerpt?: string | null;
+  legacyHeroSummary?: string | null;
+  legacyPrimaryKeyword?: string | null;
   heroImage?: (number | null) | Media;
   relatedProducts?: (number | Product)[] | null;
   relatedPages?: (number | Page)[] | null;
@@ -496,6 +546,30 @@ export interface Page {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * 从旧站 content_pages.body 导入：{heading, paragraphs, bullets}[]
+   */
+  legacyBody?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * 从旧站 content_pages.internal_links 导入：{label, slug}[]
+   */
+  legacyInternalLinks?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   /**
    * 会输出为 FAQ 结构化数据，有助于搜索结果展示
    */
@@ -582,6 +656,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'categories';
         value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'designs';
+        value: number | Design;
       } | null)
     | ({
         relationTo: 'products';
@@ -737,6 +815,49 @@ export interface CategoriesSelect<T extends boolean = true> {
             };
         noindex?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "designs_select".
+ */
+export interface DesignsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  status?: T;
+  description?: T;
+  imageUrl?: T;
+  type?: T;
+  color?: T;
+  swatch?: T;
+  display?: T;
+  mood?: T;
+  occasion?: T;
+  window?: T;
+  collectionSize?: T;
+  note?: T;
+  highlights?:
+    | T
+    | {
+        title?: T;
+        text?: T;
+        id?: T;
+      };
+  planningPoints?:
+    | T
+    | {
+        point?: T;
+        id?: T;
+      };
+  tags?:
+    | T
+    | {
+        tag?: T;
+        id?: T;
+      };
+  votesCount?: T;
+  sort?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -906,10 +1027,14 @@ export interface PagesSelect<T extends boolean = true> {
   path?: T;
   pageType?: T;
   excerpt?: T;
+  legacyHeroSummary?: T;
+  legacyPrimaryKeyword?: T;
   heroImage?: T;
   relatedProducts?: T;
   relatedPages?: T;
   body?: T;
+  legacyBody?: T;
+  legacyInternalLinks?: T;
   faq?:
     | T
     | {
@@ -1012,6 +1137,18 @@ export interface SiteSetting {
     pageColor?: string | null;
     textColor?: string | null;
   };
+  /**
+   * 旧站 site_settings.config 的完整 JSON，前台按此渲染首页、导航、主题与 catalog
+   */
+  legacyConfig?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   seoDefaults?: {
     titleSuffix?: string | null;
     defaultDescription?: string | null;
@@ -1047,6 +1184,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         pageColor?: T;
         textColor?: T;
       };
+  legacyConfig?: T;
   seoDefaults?:
     | T
     | {

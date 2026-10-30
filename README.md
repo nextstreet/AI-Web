@@ -1,65 +1,59 @@
 # AI-Web
 
-自用独立站：Astro 前台 + Payload 后台，以及它依赖的 SEO 决策引擎与 Supabase 基础模型。
-客户交付套件在独立仓库 `ai-seo-saas` 维护，本仓库不引用它的代码或数据。
+自用独立站：**Astro 前台 + Payload 3 后台**。前台是完整的旧版 ITA ATELIER
+页面（首页、画廊、概念集合、定制 brief、设计详情、指南与内容页），后台只使用
+Payload，不再依赖 Directus。
 
-V1 的目标不是“生成最多文章”，而是尽快跑通：
+## 快速开始
 
-```text
-Facts -> Topic Graph -> Candidate -> Brief -> Review -> Page -> Performance
-```
-
-## 快速开始（自用项目）
+要求 Node **>= 22.23.4**（Astro 7.3 engines）。
 
 ```bash
 cp .env.example .env
+cp apps/cms/.env.example apps/cms/.env   # 填 PAYLOAD_SECRET
 pnpm install
-pnpm dev:cms     # Payload 后台，http://localhost:3000/admin
-pnpm dev         # Astro 前台，http://localhost:4321
+pnpm dev:cms     # Payload: http://localhost:3000/admin
+pnpm dev         # Astro:   http://localhost:4321
 ```
 
-导入本地 Markdown 页面与演示产品（需要后台已启动，并配置管理员账号）：
+首次启动 Payload 后在 `/admin` 创建管理员，或在 `.env` 配置
+`PAYLOAD_ADMIN_EMAIL/PASSWORD` 后导入旧站数据：
 
 ```bash
 pnpm cms:import
 ```
 
-验证整个仓库：
+`cms:import` 会把 `apps/cms/seed/legacy-site.json` 中的 52 个内容页和 3 个设计概念
+写入 Payload。该 fixture 从旧 Supabase 一次性导出，网站运行时不再访问 Supabase。
 
-```bash
-pnpm check
-```
-
-本地 Supabase（需要 Docker 与 Supabase CLI）：
-
-```bash
-supabase start
-supabase db reset
-```
-
-## 当前可演示闭环
-
-- `/studio/`：在构建时运行 Topic Graph、机会评分、人工批准与 Brief 生成。
-- `/custom/custom-ita-bag-design/` 与 `/guides/how-to-design-an-ita-bag/`：由 Payload 发布的页面。
-- `/products/`：由 Payload 管理的产品目录与详情页（规格、图集、展示区块）。
-- 未设置 `PAYLOAD_URL` 时回退到 `apps/web/src/content` 的 Markdown。
-- 候选状态只能沿受控路径推进；数据库 migration 保存带理由的状态历史。
-
-当前 Studio 使用确定性的内存仓储作为本地演示。Supabase schema 是持久化边界，接入线上项目前仍需在本地执行 migration reset 和 RLS 集成测试。
-
-## 目录
+## 结构
 
 | 路径 | 职责 |
 | --- | --- |
-| `apps/web` | 自用项目的 Astro SEO 站点 |
-| `apps/cms` | 自用项目的 Payload 后台、迁移与内容模型 |
-| `packages/shared` | 通用类型、Schema、常量 |
-| `packages/seo-engine` | SEO 决策与机会评分 |
-| `packages/content-engine` | Brief、事实注入、内容验证 |
-| `supabase` | PostgreSQL migration 与种子数据（共享基础模型） |
-| `scripts` | 数据库推送/校验、体检与 Payload 导入脚本 |
-| `docs` | 自用项目的架构、数据库、路线图与本地开发上下文 |
+| `apps/web` | Astro SSR 前台（旧版 ITA ATELIER 页面） |
+| `apps/cms` | Payload 3 后台：Pages / Designs / Products / Media / Users / SiteSettings |
+| `packages/seo-engine` | SEO 机会评分与页面类型决策（可选基础能力） |
+| `packages/content-engine` | Brief、事实注入、草稿校验（可选基础能力） |
+| `supabase` | SEO 运营数据迁移（网站 CMS 不使用） |
+| `scripts` | Payload 导入/导出、数据库体检 |
 
-自用项目请先阅读 [AGENTS.md](AGENTS.md) 与
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)；全部文档入口见
-[docs/README.md](docs/README.md)。
+## 内容来源
+
+- `SiteSettings.legacyConfig`：旧站完整配置 JSON（品牌、导航、主题、首页文案、catalog）。
+- `Pages`：旧站 `/content/*` 页面，`legacyBody` 保存原有正文区块。
+- `Designs`：画廊/设计概念与票数。
+- `apps/web/src/content/pages`：两篇 Markdown 页面，作为构建期内容保留。
+
+## 部署路由
+
+生产环境建议 Caddy 按路径分流：
+
+```text
+/admin*  -> 127.0.0.1:3000  (Payload)
+/api*    -> 127.0.0.1:3000  (Payload)
+/media*  -> 127.0.0.1:3000  (Payload)
+/*       -> 127.0.0.1:4321  (Astro SSR)
+```
+
+AI-SEO 客户交付平台（Directus + n8n + WordPress）在独立仓库维护，
+不引用本仓库代码或数据。

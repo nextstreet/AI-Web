@@ -63,6 +63,8 @@ export const Pages: CollectionConfig = {
               ],
             },
             { name: 'excerpt', type: 'textarea', label: '摘要', localized: true },
+            { name: 'legacyHeroSummary', type: 'textarea', label: '旧站导语' },
+            { name: 'legacyPrimaryKeyword', type: 'text', label: '旧站主关键词' },
             { name: 'heroImage', type: 'upload', relationTo: 'media', label: '头图' },
             {
               name: 'relatedProducts',
@@ -88,6 +90,18 @@ export const Pages: CollectionConfig = {
               type: 'richText',
               label: '正文',
               localized: true,
+            },
+            {
+              name: 'legacyBody',
+              type: 'json',
+              label: '旧站正文区块',
+              admin: { description: '从旧站 content_pages.body 导入：{heading, paragraphs, bullets}[]' },
+            },
+            {
+              name: 'legacyInternalLinks',
+              type: 'json',
+              label: '旧站内链',
+              admin: { description: '从旧站 content_pages.internal_links 导入：{label, slug}[]' },
             },
             {
               name: 'faq',

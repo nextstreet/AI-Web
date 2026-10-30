@@ -1,0 +1,5 @@
+---
+const base = (process.env.PAYLOAD_URL || import.meta.env.PAYLOAD_URL || 'http://localhost:3000').replace(/\/$/, '');
+const path = Astro.params.path || '';
+return Astro.redirect(`${base}/admin/${path}`, 302);
+---
