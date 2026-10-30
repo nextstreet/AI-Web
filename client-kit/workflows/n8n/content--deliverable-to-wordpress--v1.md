@@ -66,7 +66,8 @@ Rank Math 为 `rank_math_title`、`rank_math_description`、`rank_math_canonical
 ## 幂等与失败
 
 - 已有 `wp_post_id`（或手工填的 `target_post_id`）走更新，否则创建；不会重复建内容。
-- `runs.execution_id` 唯一，重复提交运行记录会因唯一约束失败，但内容不会重复。
+- `runs.execution_id` 唯一，实际写入 `${$execution.id}:${deliverable.id}`，避免同一次执行的多条
+  记录互相冲突；重复提交运行记录会因唯一约束失败，但内容不会重复。
 - 推送成功但写回 Directus 失败时：WordPress 已有内容，`deliverables` 停留在
   `pushing`，`runs` 记录失败。手工把状态改回 `approved` 重跑即可（会走更新）。
 - 推送失败时置 `status=failed` 并写 `last_error`，不会自动重试；人工修正后改回

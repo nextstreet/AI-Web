@@ -60,7 +60,8 @@
 ## 幂等与失败
 
 - 幂等键：`tenant.slug:kind:candidate.external_id`，与文章流程区分（kind 不同）。
-- `runs.execution_id` 唯一，重复提交运行记录会失败，但不会重复建素材。
+- `runs.execution_id` 唯一，实际写入 `${$execution.id}:${candidateId}`（成功时用交付物 id），
+  避免同一次执行处理多个候选时互相冲突。
 - AI 返回不是 JSON、缺少必要字段（`headlines`/`descriptions` 或 `caption`）时，
   本次记为失败，候选保持 `approved`，修复后重跑即可。
 - 失败不会写入 `deliverables`，`deliverables` 也不会出现半成品。

@@ -51,8 +51,8 @@
 ## 幂等与失败
 
 - 幂等键：`tenant.slug:kind:candidate.external_id`；重复运行会跳过已有交付物。
-- `runs.execution_id` 唯一；若“写运行记录”在重试中重复提交，第二次会因唯一约束失败，
-  但内容本身不会重复。
+- `runs.execution_id` 唯一；实际写入 `${$execution.id}:${candidateId}`（成功时用交付物 id），
+  避免同一次执行处理多个候选时互相冲突。
 - AI 返回必须是 JSON 对象且包含 `title`、`body_md`；否则本次记为失败。
 - 失败不会自动改候选状态，候选保持 `approved`，修复后重跑即可。
 

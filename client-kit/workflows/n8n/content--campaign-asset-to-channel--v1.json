@@ -304,7 +304,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize delivery').first().json.tenantId, deliverable: $('Normalize delivery').first().json.deliverableId, workflow: 'campaign-asset-to-channel', execution_id: $execution.id, status: 'success', started_at: $('Normalize delivery').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { platform: $('Normalize delivery').first().json.platform, external_id: $('Normalize delivery').first().json.delivery.external_id, external_url: $('Normalize delivery').first().json.delivery.external_url, remote_status: $('Normalize delivery').first().json.delivery.remote_status } }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize delivery').first().json.tenantId, deliverable: $('Normalize delivery').first().json.deliverableId, workflow: 'campaign-asset-to-channel', execution_id: $execution.id + ':' + $('Normalize delivery').first().json.deliverableId, status: 'success', started_at: $('Normalize delivery').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { platform: $('Normalize delivery').first().json.platform, external_id: $('Normalize delivery').first().json.delivery.external_id, external_url: $('Normalize delivery').first().json.delivery.external_url, remote_status: $('Normalize delivery').first().json.delivery.remote_status } }) }}",
         "options": {}
       },
       "id": "d1e2f3a4-000d-4b5c-9d0e-1f2a3b4c5d0d",
@@ -376,7 +376,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'campaign-asset-to-channel', execution_id: $execution.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'campaign-asset-to-channel', execution_id: $execution.id + ':' + $('Loop Over Items').first().json.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
         "options": {}
       },
       "id": "d1e2f3a4-0010-4b5c-9d0e-1f2a3b4c5d10",
@@ -469,14 +469,14 @@
       "main": [
         [
           {
-            "node": "Claim deliverable",
+            "node": "Done",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Done",
+            "node": "Claim deliverable",
             "type": "main",
             "index": 0
           }

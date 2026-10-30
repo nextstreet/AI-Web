@@ -55,9 +55,10 @@ n8n（执行器：调用 WordPress REST，写草稿/更新/发布）
 
 1. **草稿优先**：首次推送一律 `status=draft`；发布是单独动作，受 `publish_policy` 限制。
 2. **幂等**：先按 `external_key` 查 `deliverables`，有 `wp_post_id` 走更新，没有才创建。
-3. **目标类型**：`target_post_type` 为 `post` / `product` / `page` / `custom`；`target_post_id` 用于更新已有内容。
+3. **目标类型**：`target_post_type` 为 `post` / `product` / `page`；`target_post_id` 用于更新已有内容。
+   `custom` 目前会被推送流程跳过，等确认客户的 REST 路由后再接。
 4. **SEO 元数据**：`tenants.seo_plugin` 为 `yoast` 或 `rankmath` 时，通过 WP 侧暴露的自定义字段写入；为 `none` 时退回标题、摘要与原生字段。不同客户环境需先验证 REST 是否暴露这些字段。
-5. **媒体**：`featured_image_url` 由 n8n 下载后上传 WP 媒体库，按 URL 去重，并写入 alt。
+5. **媒体**：`featured_image_url` 先按文件名在 WP 媒体库检索，命中则复用，未命中才下载上传，并写入 alt。
 6. **失败可见**：写入失败时更新 `deliverables.last_error`，并向 `runs` 追加一条失败记录，不静默丢弃。
 
 ## 部署

@@ -360,7 +360,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Parse output').first().json.deliverable.tenant, deliverable: $json.data.id, workflow: 'candidate-to-campaign-asset', execution_id: $execution.id, status: 'success', started_at: $('Build prompt').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { candidate: $('Parse output').first().json.deliverable.candidate, kind: $('Parse output').first().json.deliverable.kind, platform: $('Parse output').first().json.deliverable.payload.platform, external_key: $('Parse output').first().json.deliverable.external_key, model: $('Parse output').first().json.deliverable.ai_model } }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Parse output').first().json.deliverable.tenant, deliverable: $json.data.id, workflow: 'candidate-to-campaign-asset', execution_id: $execution.id + ':' + $json.data.id, status: 'success', started_at: $('Build prompt').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { candidate: $('Parse output').first().json.deliverable.candidate, kind: $('Parse output').first().json.deliverable.kind, platform: $('Parse output').first().json.deliverable.payload.platform, external_key: $('Parse output').first().json.deliverable.external_key, model: $('Parse output').first().json.deliverable.ai_model } }) }}",
         "options": {}
       },
       "id": "c1d2e3f4-000f-4a5b-8c9d-0e1f2a3b4c0f",
@@ -389,7 +389,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, workflow: 'candidate-to-campaign-asset', execution_id: $execution.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt ?? null, finished_at: new Date().toISOString(), error: String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, workflow: 'candidate-to-campaign-asset', execution_id: $execution.id + ':' + $('Loop Over Items').first().json.candidateId, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt ?? null, finished_at: new Date().toISOString(), error: String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
         "options": {}
       },
       "id": "c1d2e3f4-0010-4a5b-8c9d-0e1f2a3b4c10",
@@ -482,14 +482,14 @@
       "main": [
         [
           {
-            "node": "Find existing deliverable",
+            "node": "Done",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Done",
+            "node": "Find existing deliverable",
             "type": "main",
             "index": 0
           }

@@ -312,7 +312,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Parse output').item.json.deliverable.tenant, deliverable: $json.data.id, workflow: 'candidate-to-deliverable', execution_id: $execution.id, status: 'success', started_at: $('Build prompt').item.json.startedAt, finished_at: new Date().toISOString(), payload_summary: { candidate: $('Parse output').item.json.deliverable.candidate, external_key: $('Parse output').item.json.deliverable.external_key, model: $('Parse output').item.json.deliverable.ai_model } }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Parse output').item.json.deliverable.tenant, deliverable: $json.data.id, workflow: 'candidate-to-deliverable', execution_id: $execution.id + ':' + $json.data.id, status: 'success', started_at: $('Build prompt').item.json.startedAt, finished_at: new Date().toISOString(), payload_summary: { candidate: $('Parse output').item.json.deliverable.candidate, external_key: $('Parse output').item.json.deliverable.external_key, model: $('Parse output').item.json.deliverable.ai_model } }) }}",
         "options": {}
       },
       "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c0f",
@@ -338,7 +338,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').item.json.tenantId, workflow: 'candidate-to-deliverable', execution_id: $execution.id, status: 'failed', started_at: $('Build prompt').isExecuted ? $('Build prompt').first().json.startedAt : null, finished_at: new Date().toISOString(), error: String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').item.json.tenantId, workflow: 'candidate-to-deliverable', execution_id: $execution.id + ':' + $('Loop Over Items').item.json.candidateId, status: 'failed', started_at: $('Build prompt').isExecuted ? $('Build prompt').first().json.startedAt : null, finished_at: new Date().toISOString(), error: String($json.error?.message ?? $json.error ?? 'unknown error').slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
         "options": {}
       },
       "id": "8f0c2a4e-0d1f-4a6b-9c2d-1e3f5a7b9c10",

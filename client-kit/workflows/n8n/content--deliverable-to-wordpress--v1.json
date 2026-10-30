@@ -411,7 +411,8 @@
           "id": "replace-with-wordpress-credential-id",
           "name": "WordPress Application Password"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -515,10 +516,13 @@
         "genericCredentialType": "httpBasicAuth",
         "sendBody": true,
         "contentType": "multipart-form-data",
-        "sendBinaryData": true,
-        "inputDataFieldName": "data",
         "bodyParameters": {
           "parameters": [
+            {
+              "name": "file",
+              "parameterType": "formBinaryData",
+              "inputDataFieldName": "data"
+            },
             {
               "name": "alt_text",
               "value": "={{ $('Build payload').first().json.wpPayload.title }}"
@@ -648,7 +652,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize push result').first().json.tenantId, deliverable: $('Normalize push result').first().json.deliverableId, workflow: 'deliverable-to-wordpress', execution_id: $execution.id, status: 'success', started_at: $('Normalize push result').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { action: $('Normalize push result').first().json.action, target: $('Normalize push result').first().json.targetPostType, wp_post_id: $('Normalize push result').first().json.wpId, wp_status: $('Normalize push result').first().json.wpStatus, wp_url: $('Normalize push result').first().json.wpUrl, skipped_terms: $('Normalize push result').first().json.skippedTerms, media_warning: $('Normalize push result').first().json.mediaWarning || null } }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Normalize push result').first().json.tenantId, deliverable: $('Normalize push result').first().json.deliverableId, workflow: 'deliverable-to-wordpress', execution_id: $execution.id + ':' + $('Normalize push result').first().json.deliverableId, status: 'success', started_at: $('Normalize push result').first().json.startedAt, finished_at: new Date().toISOString(), payload_summary: { action: $('Normalize push result').first().json.action, target: $('Normalize push result').first().json.targetPostType, wp_post_id: $('Normalize push result').first().json.wpId, wp_status: $('Normalize push result').first().json.wpStatus, wp_url: $('Normalize push result').first().json.wpUrl, skipped_terms: $('Normalize push result').first().json.skippedTerms, media_warning: $('Normalize push result').first().json.mediaWarning || null } }) }}",
         "options": {}
       },
       "id": "b1a2c3d4-0018-4e5f-8a9b-0c1d2e3f4a18",
@@ -720,7 +724,7 @@
         "genericCredentialType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'deliverable-to-wordpress', execution_id: $execution.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
+        "jsonBody": "={{ JSON.stringify({ tenant: $('Loop Over Items').first().json.tenantId, deliverable: $('Loop Over Items').first().json.id, workflow: 'deliverable-to-wordpress', execution_id: $execution.id + ':' + $('Loop Over Items').first().json.id, status: 'failed', started_at: $('Loop Over Items').first().json.startedAt, finished_at: new Date().toISOString(), error: String($json.error?.message ?? ($('Capture error').isExecuted ? $('Capture error').first().json.message : 'unknown error')).slice(0, 2000), log_excerpt: String($json.error?.description ?? '').slice(0, 2000) }) }}",
         "options": {}
       },
       "id": "b1a2c3d4-001b-4e5f-8a9b-0c1d2e3f4a1b",
@@ -813,14 +817,14 @@
       "main": [
         [
           {
-            "node": "Claim deliverable",
+            "node": "Done",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Done",
+            "node": "Claim deliverable",
             "type": "main",
             "index": 0
           }
