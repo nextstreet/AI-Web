@@ -32,6 +32,9 @@ importers:
       graphql:
         specifier: ^16.11.0
         version: 16.14.2
+      libsql:
+        specifier: 0.4.7
+        version: 0.4.7
       next:
         specifier: 16.4.2
         version: 16.4.2(@types/node@24.13.3)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(sass@1.77.4)
@@ -7560,7 +7563,7 @@ snapshots:
     dependencies:
       chokidar: 3.6.0
       immutable: 4.3.9
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   satteri@0.10.5:
     dependencies:
