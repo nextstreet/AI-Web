@@ -8,6 +8,7 @@
 | `DECISIONS.md` | proposing a framework, CMS, database, or major architectural change |
 | `CURRENT-SPRINT.md` | selecting the next implementation task |
 | `LEGACY-STOREFRONT.md` | working on the restored ITA ATELIER pages, Payload schema, or legacy import |
+| `DEPLOYMENT.md` | deploying, restarting, or rolling back the live site |
 | `ROADMAP.md` | checking phase order and deferrals |
 | `CODEX-LOCAL-WORKFLOW.md` | using Trae + Codex CLI and writing task prompts |
 
