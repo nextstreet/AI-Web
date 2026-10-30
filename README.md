@@ -1,7 +1,7 @@
-# AI SEO SaaS V1
+# AI-Web
 
-本仓库只包含自用独立站（Astro + Payload）与它依赖的 SEO 决策引擎、Supabase 基础模型。
-客户交付套件（Directus 操作台 + n8n）已拆到独立仓库，本仓库不引用它的代码或数据。
+自用独立站：Astro 前台 + Payload 后台，以及它依赖的 SEO 决策引擎与 Supabase 基础模型。
+客户交付套件在独立仓库 `ai-seo-saas` 维护，本仓库不引用它的代码或数据。
 
 V1 的目标不是“生成最多文章”，而是尽快跑通：
 
